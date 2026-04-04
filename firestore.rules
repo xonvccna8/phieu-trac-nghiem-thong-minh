@@ -1,0 +1,177 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: classes
+    // Document ID: auto-generated string
+    // Fields:
+    //   - name: string (required)
+    //   - createdAt: number (required)
+    //
+    // Collection: students
+    // Document ID: auto-generated string
+    // Fields:
+    //   - sbd: string (required, 6 digits)
+    //   - fullName: string (required)
+    //   - classId: string (required)
+    //   - createdAt: number (required)
+    //
+    // Collection: exams
+    // Document ID: auto-generated string
+    // Fields:
+    //   - title: string (required)
+    //   - part1: map (required)
+    //   - part2: map (required)
+    //   - part3: map (required)
+    //   - createdAt: number (required)
+    //
+    // Collection: assignments
+    // Document ID: auto-generated string
+    // Fields:
+    //   - examId: string (required)
+    //   - classId: string (required)
+    //   - mode: string (required, 'EXAM' or 'PRACTICE')
+    //   - status: string (required)
+    //   - dueDate: string (required)
+    //   - createdAt: number (required)
+    //
+    // Collection: attempts
+    // Document ID: auto-generated string
+    // Fields:
+    //   - assignmentId: string (required)
+    //   - studentId: string (required)
+    //   - answers: list (optional, old format)
+    //   - answersPart1: map (optional, new format)
+    //   - answersPart2: map (optional, new format)
+    //   - answersPart3: map (optional, new format)
+    //   - score: number (required)
+    //   - part1Score: number (optional)
+    //   - part2Score: number (optional)
+    //   - part3Score: number (optional)
+    //   - submittedAt: number (required)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isString(field) {
+      return request.resource.data[field] is string;
+    }
+
+    function isNumber(field) {
+      return request.resource.data[field] is number;
+    }
+
+    // Domain Validators
+    function isValidClass() {
+      return hasRequiredFields(['name', 'createdAt']) &&
+             isString('name') && request.resource.data.name.size() > 0 && request.resource.data.name.size() < 100 &&
+             isNumber('createdAt');
+    }
+
+    function isValidStudent() {
+      return hasRequiredFields(['sbd', 'fullName', 'classId', 'createdAt']) &&
+             isString('sbd') && request.resource.data.sbd.matches('^[0-9]{6}$') &&
+             isString('fullName') && request.resource.data.fullName.size() > 0 && request.resource.data.fullName.size() < 100 &&
+             isString('classId') &&
+             isNumber('createdAt');
+    }
+
+    function isValidExam() {
+      return hasRequiredFields(['title', 'part1', 'part2', 'part3', 'createdAt']) &&
+             isString('title') && request.resource.data.title.size() > 0 && request.resource.data.title.size() < 200 &&
+             request.resource.data.part1 is map &&
+             request.resource.data.part2 is map &&
+             request.resource.data.part3 is map &&
+             isNumber('createdAt');
+    }
+
+    function isValidAssignment() {
+      return hasRequiredFields(['examId', 'classId', 'mode', 'status', 'dueDate', 'createdAt']) &&
+             isString('examId') &&
+             isString('classId') &&
+             isString('mode') && (request.resource.data.mode == 'EXAM' || request.resource.data.mode == 'PRACTICE') &&
+             isString('status') &&
+             isString('dueDate') &&
+             isNumber('createdAt');
+    }
+
+    function isValidAttempt() {
+      return hasRequiredFields(['assignmentId', 'studentId', 'score', 'submittedAt']) &&
+             isString('assignmentId') &&
+             isString('studentId') &&
+             isNumber('score') && request.resource.data.score >= 0 && request.resource.data.score <= 10 &&
+             isNumber('submittedAt');
+    }
+
+    function isValidUser() {
+      return hasRequiredFields(['uid', 'email', 'role', 'fullName', 'createdAt']) &&
+             isString('uid') &&
+             isString('email') &&
+             isString('role') && (request.resource.data.role == 'TEACHER' || request.resource.data.role == 'STUDENT') &&
+             isString('fullName') &&
+             isNumber('createdAt');
+    }
+
+    // -------------------------------------------------------------------------
+    // Rules
+    // -------------------------------------------------------------------------
+    // Note: Since the app currently does not use Firebase Authentication (users log in via SBD),
+    // we cannot use `request.auth != null`. 
+    // For a production app, you MUST implement Firebase Auth (e.g., Email/Password or Google Sign-In)
+    // to properly secure these endpoints.
+    // 
+    // The rules below validate the DATA STRUCTURE to prevent corruption, 
+    // but they currently allow ANYONE to read/write if the data is valid.
+    // -------------------------------------------------------------------------
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isValidUser();
+      allow update: if isValidUser();
+      allow delete: if true;
+    }
+
+    match /classes/{classId} {
+      allow read: if true;
+      allow create: if isValidClass();
+      allow update: if isValidClass();
+      allow delete: if true; // Should be restricted to teachers
+    }
+
+    match /students/{studentId} {
+      allow read: if true;
+      allow create: if isValidStudent();
+      allow update: if isValidStudent();
+      allow delete: if true; // Should be restricted to teachers
+    }
+
+    match /exams/{examId} {
+      allow read: if true;
+      allow create: if isValidExam();
+      allow update: if isValidExam();
+      allow delete: if true; // Should be restricted to teachers
+    }
+
+    match /assignments/{assignmentId} {
+      allow read: if true;
+      allow create: if isValidAssignment();
+      allow update: if isValidAssignment();
+      allow delete: if true; // Should be restricted to teachers
+    }
+
+    match /attempts/{attemptId} {
+      allow read: if true;
+      allow create: if isValidAttempt();
+      allow update: if isValidAttempt();
+      allow delete: if true; // Should be restricted to teachers
+    }
+  }
+}
