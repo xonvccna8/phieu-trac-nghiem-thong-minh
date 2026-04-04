@@ -200,7 +200,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   });
 
   useEffect(() => {
-    if (mode === 'REVIEW' || !timerStarted) return;
+    if (mode !== 'EXAM' || !timerStarted) return;
     
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -223,7 +223,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   }, [exam, assignment, mode]);
 
   useEffect(() => {
-    if (timeLeft === 0 && !isTimeUp && assignment && mode !== 'REVIEW') {
+    if (timeLeft === 0 && !isTimeUp && assignment && mode === 'EXAM') {
       setIsTimeUp(true);
       setAlertDialog({
         isOpen: true,
@@ -551,7 +551,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
               {mode === 'EXAM' ? 'THI ONLINE' : mode === 'PRACTICE' ? 'ÔN LUYỆN' : 'XEM LẠI BÀI'}
             </span>
           </div>
-          {mode !== 'REVIEW' && (
+          {mode === 'EXAM' && (
             <div className={cn(
               "font-mono font-bold text-sm md:text-xl px-3 py-1 rounded-lg flex items-center gap-1.5 md:gap-2 shadow-sm",
               timeLeft <= 300 ? "bg-red-600 animate-pulse" : "bg-blue-800"
