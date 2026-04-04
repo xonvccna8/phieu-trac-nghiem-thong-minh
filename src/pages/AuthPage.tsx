@@ -148,42 +148,40 @@ export default function AuthPage() {
   };
 
   return (
-    <div translate="no" className="notranslate min-h-screen bg-gray-50 flex font-sans relative overflow-hidden">
-      {/* Left Panel - Branding & Illustration (Hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
-        {/* Background Image with Elegant Dark Overlay */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center z-0"
-          style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80")' }}
-        ></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/95 via-teal-900/90 to-emerald-950/95 z-0 mix-blend-multiply"></div>
-        
-        {/* Decorative floating elements */}
-        <div className="absolute top-20 left-20 w-72 h-72 bg-emerald-500/20 rounded-full blur-[80px] z-0 animate-pulse"></div>
-        <div className="absolute bottom-20 right-20 w-72 h-72 bg-teal-400/20 rounded-full blur-[80px] z-0 animate-pulse delay-1000"></div>
+    <div translate="no" className="notranslate min-h-screen bg-slate-950 flex font-sans relative overflow-hidden text-slate-100 selection:bg-emerald-500/30">
+      {/* Ambient Background Effects */}
+      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-10 mix-blend-screen"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/80"></div>
+      
+      {/* Glowing Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-emerald-500/20 rounded-full blur-[100px] animate-pulse"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-teal-400/20 rounded-full blur-[100px] animate-pulse delay-1000"></div>
+      <div className="absolute top-[40%] left-[60%] w-64 h-64 bg-emerald-300/10 rounded-full blur-[80px] animate-pulse delay-500"></div>
 
+      {/* Left Panel - Branding & Illustration (Hidden on mobile) */}
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden z-10">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-14 h-14 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-lg">
+            <div className="w-14 h-14 bg-emerald-500/20 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-emerald-400/30 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
               <BrainCircuit className="w-7 h-7 text-emerald-300" />
             </div>
             <h2 className="text-3xl font-extrabold text-white tracking-tight">SmartEdu AI</h2>
           </div>
           
-          <h1 className="text-5xl xl:text-6xl font-extrabold text-white leading-tight mb-6 tracking-tight">
+          <h1 className="text-5xl xl:text-6xl font-extrabold text-white leading-tight mb-6 tracking-tight drop-shadow-lg">
             PHIẾU TRẮC NGHIỆM <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-200">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-emerald-400 drop-shadow-sm">
               THÔNG MINH
             </span>
           </h1>
-          <p className="text-emerald-50/80 text-lg xl:text-xl max-w-lg leading-relaxed font-medium">
+          <p className="text-emerald-100/80 text-lg xl:text-xl max-w-lg leading-relaxed font-medium">
             Ứng dụng trí tuệ nhân tạo để cá nhân hóa lộ trình học tập, tự động hóa quy trình kiểm tra và đánh giá năng lực học sinh toàn diện.
           </p>
         </div>
 
         <div className="relative z-10 grid grid-cols-2 gap-6 mt-16 max-w-xl">
-          <div className="bg-white/10 backdrop-blur-md border border-white/10 p-5 rounded-2xl flex items-start gap-4 hover:bg-white/15 transition-all duration-300 group">
-            <div className="bg-emerald-500/20 p-3 rounded-xl group-hover:scale-110 transition-transform duration-300">
+          <div className="glass-card p-5 flex items-start gap-4 hover:bg-slate-800/90 transition-all duration-300 group">
+            <div className="bg-emerald-500/20 p-3 rounded-xl group-hover:scale-110 transition-transform duration-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
               <Sparkles className="w-6 h-6 text-emerald-300" />
             </div>
             <div>
@@ -191,8 +189,8 @@ export default function AuthPage() {
               <p className="text-emerald-100/70 text-sm leading-relaxed">Tự động tạo đề, chấm điểm và phân tích năng lực chi tiết.</p>
             </div>
           </div>
-          <div className="bg-white/10 backdrop-blur-md border border-white/10 p-5 rounded-2xl flex items-start gap-4 hover:bg-white/15 transition-all duration-300 group">
-            <div className="bg-teal-500/20 p-3 rounded-xl group-hover:scale-110 transition-transform duration-300">
+          <div className="glass-card p-5 flex items-start gap-4 hover:bg-slate-800/90 transition-all duration-300 group">
+            <div className="bg-teal-500/20 p-3 rounded-xl group-hover:scale-110 transition-transform duration-300 shadow-[0_0_15px_rgba(45,212,191,0.2)]">
               <Laptop className="w-6 h-6 text-teal-300" />
             </div>
             <div>
@@ -204,54 +202,53 @@ export default function AuthPage() {
       </div>
 
       {/* Right Panel - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 relative bg-gray-50/50">
-        {/* Mobile background elements */}
-        <div className="lg:hidden absolute top-[-10%] left-[-10%] w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"></div>
-        <div className="lg:hidden absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-teal-400/10 rounded-full blur-3xl"></div>
-        
-        <div className="bg-white p-8 sm:p-10 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] w-full max-w-[440px] border border-gray-100 relative z-10">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-5 transform rotate-3 transition-transform hover:rotate-0 duration-300">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 relative z-10 safe-pt safe-pb">
+        <div className="glass-panel p-8 sm:p-10 rounded-[2rem] w-full max-w-[440px] relative overflow-hidden">
+          {/* Form inner glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-emerald-500/10 blur-3xl pointer-events-none"></div>
+
+          <div className="text-center mb-8 relative z-10">
+            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-300 rounded-2xl flex items-center justify-center mx-auto mb-5 transform rotate-3 transition-transform hover:rotate-0 duration-300 border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
               {role === 'TEACHER' ? <BookOpen className="w-8 h-8" /> : <GraduationCap className="w-8 h-8" />}
             </div>
-            <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight mb-2">
-              {isLogin ? 'ÔN LUYỆN HIỆU QUẢ' : 'Tạo tài khoản'}
+            <h2 className="text-3xl font-extrabold text-white tracking-tight mb-2">
+              {isLogin ? 'ÔN LUYỆN HIỆU QUẢ' : 'TẠO TÀI KHOẢN'}
             </h2>
-            <p className="text-gray-500 font-medium">
+            <p className="text-emerald-200/60 font-medium">
               {isLogin ? 'Đăng nhập để tiếp tục học tập' : 'Bắt đầu hành trình tri thức mới'}
             </p>
           </div>
 
-          <div className="flex p-1 mb-8 bg-gray-100/80 rounded-xl">
+          <div className="flex p-1 mb-8 bg-slate-800/50 rounded-xl border border-slate-700/50 relative z-10">
             <button
               type="button"
               onClick={() => setRole('STUDENT')}
-              className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${role === 'STUDENT' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${role === 'STUDENT' ? 'bg-emerald-500/20 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)] border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'}`}
             >
               <GraduationCap className="w-4 h-4" /> Học sinh
             </button>
             <button
               type="button"
               onClick={() => setRole('TEACHER')}
-              className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${role === 'TEACHER' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${role === 'TEACHER' ? 'bg-emerald-500/20 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)] border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'}`}
             >
               <BookOpen className="w-4 h-4" /> Giáo viên
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
             {!isLogin && (
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Họ và tên</label>
+                <label className="block text-sm font-bold text-slate-300 mb-1.5">Họ và tên</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <UserIcon className="h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors" />
+                    <UserIcon className="h-5 w-5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
                   </div>
                   <input
                     type="text"
                     required
                     placeholder="Nguyễn Văn A"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all placeholder:text-gray-400 text-gray-900 font-medium"
+                    className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-3 focus:bg-slate-800 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 outline-none transition-all placeholder:text-slate-500 text-white font-medium"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                   />
@@ -260,16 +257,16 @@ export default function AuthPage() {
             )}
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1.5">Email</label>
+              <label className="block text-sm font-bold text-slate-300 mb-1.5">Email</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors" />
+                  <Mail className="h-5 w-5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
                 </div>
                 <input
                   type="email"
                   required
                   placeholder="email@truonghoc.edu.vn"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all placeholder:text-gray-400 text-gray-900 font-medium"
+                  className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-3 focus:bg-slate-800 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 outline-none transition-all placeholder:text-slate-500 text-white font-medium"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -277,17 +274,17 @@ export default function AuthPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1.5">Mật khẩu</label>
+              <label className="block text-sm font-bold text-slate-300 mb-1.5">Mật khẩu</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors" />
+                  <Lock className="h-5 w-5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
                 </div>
                 <input
                   type="password"
                   required
                   minLength={6}
                   placeholder="••••••••"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all placeholder:text-gray-400 text-gray-900 font-medium tracking-widest"
+                  className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-11 pr-4 py-3 focus:bg-slate-800 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 outline-none transition-all placeholder:text-slate-500 text-white font-medium tracking-widest"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -297,10 +294,10 @@ export default function AuthPage() {
             {!isLogin && role === 'STUDENT' && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Số báo danh</label>
+                  <label className="block text-sm font-bold text-slate-300 mb-1.5">Số báo danh</label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Hash className="h-4 w-4 text-gray-400 group-focus-within:text-emerald-500 transition-colors" />
+                      <Hash className="h-4 w-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
                     </div>
                     <input
                       type="text"
@@ -308,21 +305,21 @@ export default function AuthPage() {
                       pattern="\d{6}"
                       maxLength={6}
                       placeholder="123456"
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-3 font-mono text-center tracking-widest focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all placeholder:text-gray-400 placeholder:tracking-normal text-gray-900 font-bold"
+                      className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-9 pr-3 py-3 font-mono text-center tracking-widest focus:bg-slate-800 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 outline-none transition-all placeholder:text-slate-500 placeholder:tracking-normal text-white font-bold"
                       value={sbd}
                       onChange={(e) => setSbd(e.target.value.replace(/\D/g, ''))}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">Lớp học</label>
+                  <label className="block text-sm font-bold text-slate-300 mb-1.5">Lớp học</label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <School className="h-4 w-4 text-gray-400 group-focus-within:text-emerald-500 transition-colors" />
+                      <School className="h-4 w-4 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
                     </div>
                     <select
                       required
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-3 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all appearance-none text-gray-900 font-medium"
+                      className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl pl-9 pr-3 py-3 focus:bg-slate-800 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 outline-none transition-all appearance-none text-white font-medium [&>option]:bg-slate-800"
                       value={classId}
                       onChange={(e) => setClassId(e.target.value)}
                     >
@@ -342,7 +339,7 @@ export default function AuthPage() {
             )}
 
             {error && (
-              <div className="flex items-start gap-2 text-sm text-red-600 mt-2 bg-red-50 p-3 rounded-xl border border-red-100">
+              <div className="flex items-start gap-2 text-sm text-red-400 mt-2 bg-red-950/50 p-3 rounded-xl border border-red-900/50">
                 <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
                 <p className="font-medium leading-relaxed">{error}</p>
               </div>
@@ -351,7 +348,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 mt-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all shadow-[0_8px_20px_-6px_rgba(5,150,105,0.4)] disabled:opacity-70 transform hover:-translate-y-0.5 flex items-center justify-center gap-2 text-base"
+              className="w-full py-4 mt-6 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl hover:from-emerald-400 hover:to-teal-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_rgba(16,185,129,0.6)] disabled:opacity-70 transform hover:-translate-y-0.5 flex items-center justify-center gap-2 text-base"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -361,14 +358,14 @@ export default function AuthPage() {
             </button>
           </form>
 
-          <div className="mt-8 text-center">
-            <p className="text-gray-500 text-sm mb-3 font-medium">
+          <div className="mt-8 text-center relative z-10">
+            <p className="text-slate-400 text-sm mb-3 font-medium">
               {isLogin ? 'Chưa có tài khoản tham gia?' : 'Đã có tài khoản trên hệ thống?'}
             </p>
             <button
               type="button"
               onClick={() => { setIsLogin(!isLogin); setError(''); }}
-              className="text-sm text-emerald-600 hover:text-emerald-700 font-bold transition-all hover:bg-emerald-50 px-4 py-2 rounded-lg"
+              className="text-sm text-emerald-400 hover:text-emerald-300 font-bold transition-all hover:bg-emerald-500/10 px-4 py-2 rounded-lg"
             >
               {isLogin ? 'Tạo tài khoản mới ngay' : 'Quay lại Đăng nhập'}
             </button>
@@ -378,19 +375,19 @@ export default function AuthPage() {
 
       {/* SBD Error Modal */}
       {sbdErrorModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertCircle className="w-8 h-8 text-red-600" />
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+                <AlertCircle className="w-8 h-8 text-red-400" />
               </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">Trùng Số Báo Danh</h3>
-              <p className="text-gray-600 mb-6">
-                Số báo danh <strong className="text-red-600">{sbd}</strong> đã được sử dụng bởi một học sinh khác. Vui lòng chọn một số báo danh khác để đăng ký!
+              <h3 className="text-xl font-bold text-white mb-2">Trùng Số Báo Danh</h3>
+              <p className="text-slate-400 mb-6">
+                Số báo danh <strong className="text-red-400">{sbd}</strong> đã được sử dụng bởi một học sinh khác. Vui lòng chọn một số báo danh khác để đăng ký!
               </p>
               <button
                 onClick={() => setSbdErrorModal(false)}
-                className="w-full py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors"
+                className="w-full py-3 bg-red-500 text-white font-bold rounded-lg hover:bg-red-400 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.3)]"
               >
                 Đã hiểu và chọn số khác
               </button>

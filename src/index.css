@@ -5,3 +5,65 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
+
+@layer base {
+  :root {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+  }
+
+  body {
+    @apply bg-slate-900 text-slate-100;
+    /* Prevent pull-to-refresh and bounce on mobile */
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Custom scrollbar for webkit */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-emerald-500/30 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-emerald-500/50;
+  }
+}
+
+@layer utilities {
+  .safe-pt {
+    padding-top: var(--safe-area-top);
+  }
+  .safe-pb {
+    padding-bottom: var(--safe-area-bottom);
+  }
+  .safe-pl {
+    padding-left: var(--safe-area-left);
+  }
+  .safe-pr {
+    padding-right: var(--safe-area-right);
+  }
+  
+  .glass-panel {
+    @apply bg-slate-900/60 backdrop-blur-xl border border-emerald-500/20 shadow-[0_8px_32px_0_rgba(16,185,129,0.1)];
+  }
+  
+  .glass-card {
+    @apply bg-slate-800/80 backdrop-blur-lg border border-emerald-500/10 shadow-lg rounded-2xl;
+  }
+
+  .text-gradient-emerald {
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-200;
+  }
+  
+  .bg-gradient-emerald {
+    @apply bg-gradient-to-r from-emerald-600 to-teal-600;
+  }
+}
