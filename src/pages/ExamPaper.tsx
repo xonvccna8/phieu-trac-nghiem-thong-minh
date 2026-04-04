@@ -273,11 +273,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
       if (isCorrect) {
         setPracticeFeedback('CORRECT');
       } else {
-        setWrongAttempts(prev => {
-          const newCount = prev + 1;
-          setPracticeFeedback(newCount === 1 ? 'WRONG_1' : 'WRONG_2');
-          return newCount;
-        });
+        setPracticeFeedback('WRONG_2'); // Bỏ qua lần sai 1 (WRONG_1), hiện thẳng đáp án chi tiết
       }
     }
   };
