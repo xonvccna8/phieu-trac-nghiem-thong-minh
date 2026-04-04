@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Save, ArrowLeft, MessageSquare, Lightbulb, Eye, Edit3, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { store } from '@/lib/store';
@@ -137,15 +137,34 @@ const ExplanationEditor = ({ id, data, setData, qNum, sub, expandedExplanation }
 
 export default function ExamEditor() {
   const navigate = useNavigate();
+  const { id: examId } = useParams<{ id: string }>();
   const { userProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<1 | 2 | 3>(1);
   const [expandedExplanation, setExpandedExplanation] = useState<string | null>(null);
   const [title, setTitle] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // State for answers and explanations
-  const [part1Data, setPart1Data] = useState<Record<number, { answer?: string, explanation?: string, hint?: string }>>({});
-  const [part2Data, setPart2Data] = useState<Record<number, { answers: Record<string, boolean>, explanation?: string, hint?: string }>>({});
-  const [part3Data, setPart3Data] = useState<Record<number, { answer?: string, explanation?: string, hint?: string }>>({});
+  const [part1Data, setPart1Data] = useState<Record<number, { answer?: string, explanation?: string, hint?: string, similarExercise?: any }>>({});
+  const [part2Data, setPart2Data] = useState<Record<number, { answers: Record<string, boolean>, explanations?: Record<string, { explanation?: string, hint?: string, similarExercise?: any }>, explanation?: string, hint?: string }>>({});
+  const [part3Data, setPart3Data] = useState<Record<number, { answer?: string, explanation?: string, hint?: string, similarExercise?: any }>>({});
+
+  useEffect(() => {
+    if (examId) {
+      setIsLoading(true);
+      store.getExamById(examId).then((examData) => {
+        if (examData) {
+          setTitle(examData.title || '');
+          setPart1Data(examData.part1 || {});
+          setPart2Data(examData.part2 || {});
+          setPart3Data(examData.part3 || {});
+          setIsEditing(true);
+        }
+        setIsLoading(false);
+      });
+    }
+  }, [examId]);
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -159,23 +178,27 @@ export default function ExamEditor() {
     }
 
     const newExam: Exam = {
-      id: Date.now().toString(),
+      id: isEditing && examId ? examId : Date.now().toString(),
       title: title.trim(),
       teacherId: userProfile.uid,
       part1: part1Data,
       part2: part2Data,
       part3: part3Data,
-      createdAt: Date.now()
+      createdAt: isEditing ? (await store.getExamById(examId!))?.createdAt || Date.now() : Date.now()
     };
 
     await store.saveExam(newExam);
-    alert('Đã lưu đề thi thành công!\n\nLƯU Ý: Đề thi mới chỉ được lưu vào kho. Bạn cần quay lại màn hình Quản lý và bấm "Giao bài" để học sinh có thể thấy và làm bài.');
+    alert(`Đã lưu đề thi thành công!\n\n${!isEditing ? 'LƯU Ý: Đề thi mới chỉ được lưu vào kho. Bạn cần quay lại màn hình Quản lý và bấm "Giao bài" để học sinh có thể thấy và làm bài.' : ''}`);
     navigate('/teacher');
   };
 
   const toggleExplanation = (id: string) => {
     setExpandedExplanation(prev => prev === id ? null : id);
   };
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Đang tải dữ liệu đề thi...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans pb-24">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Users, BarChart3, Plus, Settings, BrainCircuit, Calendar, Clock, CheckCircle2, X, GraduationCap, Trash2, School, AlertCircle, LogOut } from 'lucide-react';
+import { FileText, Users, BarChart3, Plus, Settings, BrainCircuit, Calendar, Clock, CheckCircle2, X, GraduationCap, Trash2, School, AlertCircle, LogOut, Edit3 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -10,7 +10,7 @@ import { Exam, Assignment, Attempt, Student, Class } from '@/types';
 export default function TeacherDashboard() {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'CLASSES' | 'STUDENTS' | 'RESULTS'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'EXAMS' | 'CLASSES' | 'STUDENTS' | 'RESULTS'>('OVERVIEW');
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
@@ -223,6 +223,15 @@ export default function TeacherDashboard() {
             Tổng quan
           </button>
           <button
+            onClick={() => setActiveTab('EXAMS')}
+            className={`pb-3 px-2 font-bold text-base md:text-lg transition-colors border-b-2 flex items-center gap-2 ${
+              activeTab === 'EXAMS' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <FileText className="w-5 h-5 hidden sm:block" />
+            Quản lý Đề thi
+          </button>
+          <button
             onClick={() => setActiveTab('CLASSES')}
             className={`pb-3 px-2 font-bold text-base md:text-lg transition-colors border-b-2 flex items-center gap-2 ${
               activeTab === 'CLASSES' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -388,6 +397,60 @@ export default function TeacherDashboard() {
               </div>
             </div>
           </>
+        )}
+
+        {activeTab === 'EXAMS' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h2 className="text-xl font-bold text-gray-800">Danh sách Đề thi đã tạo</h2>
+              <button 
+                onClick={() => navigate('/teacher/exam/new')}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                Tạo đề mới
+              </button>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-gray-50/50 text-gray-500 text-sm">
+                    <th className="p-4 font-medium">Tên đề thi</th>
+                    <th className="p-4 font-medium">Ngày tạo</th>
+                    <th className="p-4 font-medium text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {exams.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="p-8 text-center text-gray-500">
+                        Chưa có đề thi nào. Hãy tạo đề thi đầu tiên của bạn!
+                      </td>
+                    </tr>
+                  ) : (
+                    exams.map(exam => (
+                      <tr key={exam.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="p-4 font-bold text-gray-800">{exam.title}</td>
+                        <td className="p-4 text-sm text-gray-500">
+                          {new Date(exam.createdAt).toLocaleDateString('vi-VN')}
+                        </td>
+                        <td className="p-4 flex gap-2 justify-end">
+                          <button 
+                            onClick={() => navigate(`/teacher/exam/edit/${exam.id}`)}
+                            className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                            title="Sửa đề thi"
+                          >
+                            <Edit3 className="w-5 h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {activeTab === 'CLASSES' && (

@@ -45,6 +45,11 @@ export default function App() {
                 <ExamEditor />
               </ProtectedRoute>
             } />
+            <Route path="/teacher/exam/edit/:id" element={
+              <ProtectedRoute allowedRole="TEACHER">
+                <ExamEditor />
+              </ProtectedRoute>
+            } />
             
             <Route path="/student" element={
               <ProtectedRoute allowedRole="STUDENT">
