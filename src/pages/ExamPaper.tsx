@@ -421,26 +421,49 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
                   <span className="text-lg">🧠</span> Củng cố kiến thức:
                 </h4>
                 <p className="text-purple-700 text-sm mb-3 font-medium leading-relaxed">{reflectionQuestion}</p>
-                <textarea
-                  value={reflectionText}
-                  onChange={(e) => setReflectionText(e.target.value)}
-                  placeholder="Ghi chú lại để hiểu sâu hơn (nhập ít nhất 10 ký tự)..."
-                  className="w-full bg-white border border-purple-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-300 outline-none resize-none min-h-[80px]"
-                />
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => setReflectionText("Em đã hiểu rõ lý thuyết và cách làm.")}
+                    className={cn(
+                      "text-left px-4 py-2.5 rounded-lg text-sm font-medium border transition-all",
+                      reflectionText === "Em đã hiểu rõ lý thuyết và cách làm." ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
+                    )}
+                  >
+                    💡 Em đã hiểu rõ lý thuyết và cách làm.
+                  </button>
+                  <button
+                    onClick={() => setReflectionText("Em nhớ nhầm công thức / khái niệm.")}
+                    className={cn(
+                      "text-left px-4 py-2.5 rounded-lg text-sm font-medium border transition-all",
+                      reflectionText === "Em nhớ nhầm công thức / khái niệm." ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
+                    )}
+                  >
+                    📝 Em nhớ nhầm công thức / khái niệm.
+                  </button>
+                  <button
+                    onClick={() => setReflectionText("Em đọc sai đề bài / Tính toán nhầm.")}
+                    className={cn(
+                      "text-left px-4 py-2.5 rounded-lg text-sm font-medium border transition-all",
+                      reflectionText === "Em đọc sai đề bài / Tính toán nhầm." ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
+                    )}
+                  >
+                    ⚠️ Em đọc sai đề bài / Tính toán nhầm.
+                  </button>
+                </div>
               </div>
             </div>
 
             <button 
               onClick={handleNext}
-              disabled={reflectionText.trim().length < 10}
+              disabled={!reflectionText}
               className={cn(
-                "w-full py-3 text-white rounded-lg font-bold transition-all shrink-0 flex items-center justify-center gap-2",
-                reflectionText.trim().length < 10 
+                "w-full py-3 text-white rounded-lg font-bold transition-all shrink-0 flex items-center justify-center gap-2 mt-auto",
+                !reflectionText 
                   ? "bg-gray-300 cursor-not-allowed text-gray-500" 
                   : (practiceFeedback === 'CORRECT' ? "bg-green-500 hover:bg-green-600" : "bg-blue-600 hover:bg-blue-700")
               )}
             >
-              {reflectionText.trim().length < 10 ? "Hãy trả lời câu hỏi trên để tiếp tục" : "Đã hiểu & Tiếp tục"} <ChevronRight className="w-5 h-5" />
+              {!reflectionText ? "Hãy chọn 1 lý do để tiếp tục" : "Đã hiểu & Tiếp tục"} <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         )}
