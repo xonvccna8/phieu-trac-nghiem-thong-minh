@@ -36,6 +36,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
     mode === 'PRACTICE' ? {part: 1, num: 1} : null
   );
   const [practiceFeedback, setPracticeFeedback] = useState<'CORRECT' | 'WRONG_1' | 'WRONG_2' | null>(null);
+  const [wrongAttempts, setWrongAttempts] = useState<number>(0);
   const [alertDialog, setAlertDialog] = useState<{isOpen: boolean, message: string, onClose: () => void}>({isOpen: false, message: '', onClose: () => {}});
 
   const [reviewTab, setReviewTab] = useState<'STUDENT_WORK' | 'ANSWER_KEY'>('STUDENT_WORK');
@@ -248,7 +249,11 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
       if (isCorrect) {
         setPracticeFeedback('CORRECT');
       } else {
-        setPracticeFeedback(prev => prev === 'WRONG_1' ? 'WRONG_2' : 'WRONG_1');
+        setWrongAttempts(prev => {
+          const newCount = prev + 1;
+          setPracticeFeedback(newCount === 1 ? 'WRONG_1' : 'WRONG_2');
+          return newCount;
+        });
       }
     }
   };
@@ -268,7 +273,11 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
       if (isCorrect) {
         setPracticeFeedback('CORRECT');
       } else {
-        setPracticeFeedback(prev => prev === 'WRONG_1' ? 'WRONG_2' : 'WRONG_1');
+        setWrongAttempts(prev => {
+          const newCount = prev + 1;
+          setPracticeFeedback(newCount === 1 ? 'WRONG_1' : 'WRONG_2');
+          return newCount;
+        });
       }
     }
   };
@@ -277,6 +286,26 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
     if (mode === 'REVIEW') return;
     if (mode === 'PRACTICE' && currentQuestion?.part === 3 && currentQuestion.num !== qNum) return;
     setAnswersPart3(prev => ({ ...prev, [qNum]: value }));
+  };
+
+  const handlePart3Check = (qNum: number) => {
+    if (mode === 'PRACTICE') {
+      const studentAnswer = answersPart3[qNum]?.trim().toLowerCase() || '';
+      const correctAnswer = exam?.part3[qNum]?.answer?.trim().toLowerCase() || '';
+      
+      // Basic comparison for now, you could make it more advanced (ignore spaces, punctuation, etc.)
+      const isCorrect = studentAnswer === correctAnswer;
+      
+      if (isCorrect) {
+        setPracticeFeedback('CORRECT');
+      } else {
+        setWrongAttempts(prev => {
+          const newCount = prev + 1;
+          setPracticeFeedback(newCount === 1 ? 'WRONG_1' : 'WRONG_2');
+          return newCount;
+        });
+      }
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -326,6 +355,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
 
     const handleNext = () => {
       setPracticeFeedback(null);
+      setWrongAttempts(0);
       if (part === 1) {
         if (qNum < 18) setCurrentQuestion({ part: 1, num: qNum + 1 });
         else setCurrentQuestion({ part: 2, num: 1 });
@@ -784,19 +814,34 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
                       isCurrent && "bg-blue-50 ring-2 ring-blue-200"
                     )}>
                       <label className="font-bold text-gray-700">Câu {qNum}:</label>
-                      <input 
-                        type="text" 
-                        disabled={isDisabled || mode === 'REVIEW'}
-                        value={mode === 'REVIEW' && reviewTab === 'ANSWER_KEY' ? exam.part3[qNum]?.answer || '' : answersPart3[qNum] || ''}
-                        onChange={(e) => handlePart3Change(qNum, e.target.value)}
-                        className={cn(
-                          "border-2 rounded-md px-4 py-2 text-lg font-mono outline-none transition-all",
-                          !isCorrectReview && !isWrongReview && "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:text-gray-400",
-                          isCorrectReview && "border-green-500 bg-green-50 text-green-700",
-                          isWrongReview && "border-red-500 bg-red-50 text-red-700 shadow-[0_0_15px_rgba(239,68,68,0.3)] cursor-pointer"
+                      <div className="flex gap-2 items-stretch">
+                        <input 
+                          type="text" 
+                          disabled={isDisabled || mode === 'REVIEW'}
+                          value={mode === 'REVIEW' && reviewTab === 'ANSWER_KEY' ? exam.part3[qNum]?.answer || '' : answersPart3[qNum] || ''}
+                          onChange={(e) => handlePart3Change(qNum, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && mode === 'PRACTICE' && isCurrent) {
+                              handlePart3Check(qNum);
+                            }
+                          }}
+                          className={cn(
+                            "flex-1 border-2 rounded-md px-4 py-2 text-lg font-mono outline-none transition-all",
+                            !isCorrectReview && !isWrongReview && "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100 disabled:text-gray-400",
+                            isCorrectReview && "border-green-500 bg-green-50 text-green-700",
+                            isWrongReview && "border-red-500 bg-red-50 text-red-700 shadow-[0_0_15px_rgba(239,68,68,0.3)] cursor-pointer"
+                          )}
+                          placeholder="Nhập đáp án..."
+                        />
+                        {mode === 'PRACTICE' && isCurrent && (
+                          <button
+                            onClick={() => handlePart3Check(qNum)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md font-bold hover:bg-blue-700 transition-colors shrink-0"
+                          >
+                            Kiểm tra
+                          </button>
                         )}
-                        placeholder="Nhập đáp án..."
-                      />
+                      </div>
                       {mode === 'REVIEW' && reviewTab === 'STUDENT_WORK' && isWrongReview && (
                         <button
                           onClick={() => handleAiHelp(3, qNum)}
