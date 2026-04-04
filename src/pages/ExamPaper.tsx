@@ -337,27 +337,21 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
     
     let explanation = 'Chưa có lời giải chi tiết cho câu này.';
     let hint = undefined;
-    let reflectionQuestion = 'Em hãy tóm tắt ngắn gọn cách làm / lý do chọn đáp án này:';
+    let similarExercise: any = undefined;
 
     if (part === 1) {
       explanation = exam?.part1[qNum]?.explanation || explanation;
       hint = exam?.part1[qNum]?.hint;
-      const correctAns = exam?.part1[qNum]?.answer;
-      const wrongOptions = ['A', 'B', 'C', 'D'].filter(opt => opt !== correctAns);
-      if (wrongOptions.length > 0) {
-        const randomWrongOpt = wrongOptions[(qNum * 7) % wrongOptions.length]; // Deterministic random
-        reflectionQuestion = `Dựa vào lời giải trên, em hãy giải thích ngắn gọn: Tại sao đáp án ${randomWrongOpt} lại SAI?`;
-      }
+      similarExercise = exam?.part1[qNum]?.similarExercise;
     } else if (part === 2 && sub) {
       const subData = exam?.part2[qNum]?.explanations?.[sub];
       explanation = subData?.explanation || exam?.part2[qNum]?.explanation || explanation;
       hint = subData?.hint || exam?.part2[qNum]?.hint;
-      const isTrue = exam?.part2[qNum]?.answers?.[sub];
-      reflectionQuestion = `Theo em, từ khóa hay kiến thức cốt lõi nào quyết định ý ${sub}) là ${isTrue ? 'ĐÚNG' : 'SAI'}?`;
+      similarExercise = subData?.similarExercise;
     } else if (part === 3) {
       explanation = exam?.part3[qNum]?.explanation || explanation;
       hint = exam?.part3[qNum]?.hint;
-      reflectionQuestion = 'Em hãy ghi lại công thức hoặc bước giải quan trọng nhất của câu này:';
+      similarExercise = exam?.part3[qNum]?.similarExercise;
     }
 
     const handleNext = () => {
@@ -416,54 +410,111 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
                 )}
               </div>
 
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                <h4 className="font-bold text-purple-800 mb-2 text-sm flex items-center gap-1.5">
-                  <span className="text-lg">🧠</span> Củng cố kiến thức:
-                </h4>
-                <p className="text-purple-700 text-sm mb-3 font-medium leading-relaxed">{reflectionQuestion}</p>
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => setReflectionText("Em đã hiểu rõ lý thuyết và cách làm.")}
-                    className={cn(
-                      "text-left px-4 py-2.5 rounded-lg text-sm font-medium border transition-all",
-                      reflectionText === "Em đã hiểu rõ lý thuyết và cách làm." ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
-                    )}
-                  >
-                    💡 Em đã hiểu rõ lý thuyết và cách làm.
-                  </button>
-                  <button
-                    onClick={() => setReflectionText("Em nhớ nhầm công thức / khái niệm.")}
-                    className={cn(
-                      "text-left px-4 py-2.5 rounded-lg text-sm font-medium border transition-all",
-                      reflectionText === "Em nhớ nhầm công thức / khái niệm." ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
-                    )}
-                  >
-                    📝 Em nhớ nhầm công thức / khái niệm.
-                  </button>
-                  <button
-                    onClick={() => setReflectionText("Em đọc sai đề bài / Tính toán nhầm.")}
-                    className={cn(
-                      "text-left px-4 py-2.5 rounded-lg text-sm font-medium border transition-all",
-                      reflectionText === "Em đọc sai đề bài / Tính toán nhầm." ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
-                    )}
-                  >
-                    ⚠️ Em đọc sai đề bài / Tính toán nhầm.
-                  </button>
+              {similarExercise && similarExercise.question && similarExercise.answer ? (
+                <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                  <h4 className="font-bold text-purple-800 mb-2 text-sm flex items-center gap-1.5">
+                    <span className="text-lg">🎯</span> Bài tập tương tự (Củng cố kiến thức):
+                  </h4>
+                  <div className="text-purple-900 text-sm mb-3 font-medium leading-relaxed bg-white p-3 rounded border border-purple-100">
+                    <RichTextDisplay html={similarExercise.question} />
+                  </div>
+                  {['A', 'B', 'C', 'D'].includes(similarExercise.answer.trim().toUpperCase()) ? (
+                    <div className="flex gap-2 justify-center mt-4">
+                      {['A', 'B', 'C', 'D'].map(opt => (
+                        <button
+                          key={opt}
+                          onClick={() => setReflectionText(opt)}
+                          className={cn(
+                            "w-12 h-12 rounded-full font-bold text-lg transition-all border-2",
+                            reflectionText === opt ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
+                          )}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  ) : ['ĐÚNG', 'SAI'].includes(similarExercise.answer.trim().toUpperCase()) ? (
+                    <div className="flex gap-4 justify-center mt-4">
+                      {['ĐÚNG', 'SAI'].map(opt => (
+                        <button
+                          key={opt}
+                          onClick={() => setReflectionText(opt)}
+                          className={cn(
+                            "px-6 py-2 rounded-full font-bold text-lg transition-all border-2",
+                            reflectionText === opt ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
+                          )}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={reflectionText}
+                      onChange={(e) => setReflectionText(e.target.value)}
+                      placeholder="Nhập đáp án của em..."
+                      className="w-full bg-white border border-purple-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-300 outline-none"
+                    />
+                  )}
+                  
+                  {reflectionText && reflectionText.toUpperCase().trim() !== similarExercise.answer.toUpperCase().trim() && (
+                    <p className="text-red-500 text-xs font-bold mt-3 text-center">Chưa đúng, em hãy thử lại nhé!</p>
+                  )}
+                  {reflectionText && reflectionText.toUpperCase().trim() === similarExercise.answer.toUpperCase().trim() && (
+                    <p className="text-green-600 text-sm font-bold mt-3 text-center flex items-center justify-center gap-1"><CheckCircle2 className="w-4 h-4" /> Chính xác!</p>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                  <h4 className="font-bold text-purple-800 mb-2 text-sm flex items-center gap-1.5">
+                    <span className="text-lg">🧠</span> Củng cố kiến thức:
+                  </h4>
+                  <p className="text-purple-700 text-sm mb-3 font-medium leading-relaxed">Em đã hiểu rõ vì sao mình làm sai chưa?</p>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => setReflectionText("Em đã hiểu rõ lý thuyết và cách làm.")}
+                      className={cn(
+                        "text-left px-4 py-2.5 rounded-lg text-sm font-medium border transition-all",
+                        reflectionText === "Em đã hiểu rõ lý thuyết và cách làm." ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
+                      )}
+                    >
+                      💡 Em đã hiểu rõ lý thuyết và cách làm.
+                    </button>
+                    <button
+                      onClick={() => setReflectionText("Em nhớ nhầm công thức / khái niệm.")}
+                      className={cn(
+                        "text-left px-4 py-2.5 rounded-lg text-sm font-medium border transition-all",
+                        reflectionText === "Em nhớ nhầm công thức / khái niệm." ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
+                      )}
+                    >
+                      📝 Em nhớ nhầm công thức / khái niệm.
+                    </button>
+                    <button
+                      onClick={() => setReflectionText("Em đọc sai đề bài / Tính toán nhầm.")}
+                      className={cn(
+                        "text-left px-4 py-2.5 rounded-lg text-sm font-medium border transition-all",
+                        reflectionText === "Em đọc sai đề bài / Tính toán nhầm." ? "bg-purple-600 text-white border-purple-600" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
+                      )}
+                    >
+                      ⚠️ Em đọc sai đề bài / Tính toán nhầm.
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <button 
               onClick={handleNext}
-              disabled={!reflectionText}
+              disabled={!reflectionText || (similarExercise?.question ? reflectionText.toUpperCase().trim() !== similarExercise.answer.toUpperCase().trim() : false)}
               className={cn(
                 "w-full py-3 text-white rounded-lg font-bold transition-all shrink-0 flex items-center justify-center gap-2 mt-auto",
-                !reflectionText 
+                (!reflectionText || (similarExercise?.question ? reflectionText.toUpperCase().trim() !== similarExercise.answer.toUpperCase().trim() : false))
                   ? "bg-gray-300 cursor-not-allowed text-gray-500" 
                   : (practiceFeedback === 'CORRECT' ? "bg-green-500 hover:bg-green-600" : "bg-blue-600 hover:bg-blue-700")
               )}
             >
-              {!reflectionText ? "Hãy chọn 1 lý do để tiếp tục" : "Đã hiểu & Tiếp tục"} <ChevronRight className="w-5 h-5" />
+              {(!reflectionText || (similarExercise?.question ? reflectionText.toUpperCase().trim() !== similarExercise.answer.toUpperCase().trim() : false)) ? "Hoàn thành củng cố để tiếp tục" : "Đã hiểu & Tiếp tục"} <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         )}

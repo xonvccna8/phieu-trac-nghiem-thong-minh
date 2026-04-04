@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, ArrowLeft, MessageSquare, Lightbulb, Eye, Edit3 } from 'lucide-react';
+import { Save, ArrowLeft, MessageSquare, Lightbulb, Eye, Edit3, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { store } from '@/lib/store';
 import { Exam } from '@/types';
@@ -13,6 +13,7 @@ const ExplanationEditor = ({ id, data, setData, qNum, sub, expandedExplanation }
   const currentData = sub ? data[qNum]?.explanations?.[sub] : data[qNum];
   const currentExplanation = currentData?.explanation || '';
   const currentHint = currentData?.hint || '';
+  const currentSimilarExercise = currentData?.similarExercise || { question: '', answer: '' };
 
   const updateData = (field: 'explanation' | 'hint', value: string) => {
     setData((prev: any) => {
@@ -43,8 +44,42 @@ const ExplanationEditor = ({ id, data, setData, qNum, sub, expandedExplanation }
     });
   };
 
+  const updateSimilarExercise = (field: 'question' | 'answer', value: string) => {
+    setData((prev: any) => {
+      const updatedExercise = {
+        ...currentSimilarExercise,
+        [field]: value
+      };
+      
+      if (sub) {
+        const currentExplanations = prev[qNum]?.explanations || {};
+        return {
+          ...prev,
+          [qNum]: {
+            ...prev[qNum],
+            explanations: {
+              ...currentExplanations,
+              [sub]: {
+                ...(currentExplanations[sub] || {}),
+                similarExercise: updatedExercise
+              }
+            }
+          }
+        };
+      } else {
+        return {
+          ...prev,
+          [qNum]: {
+            ...prev[qNum],
+            similarExercise: updatedExercise
+          }
+        };
+      }
+    });
+  };
+
   return (
-    <div className="mt-4 p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-4 animate-in slide-in-from-top-2">
+    <div className="mt-4 p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-6 animate-in slide-in-from-top-2">
       <div>
         <label className="flex items-center gap-2 font-bold text-blue-800 mb-2">
           <MessageSquare className="w-4 h-4" /> Lời giải chi tiết {sub ? `(Ý ${sub})` : ''}
@@ -68,6 +103,32 @@ const ExplanationEditor = ({ id, data, setData, qNum, sub, expandedExplanation }
             placeholder="VD: Đừng quên cân bằng phương trình trước khi tính số mol!"
             className="h-24 mb-12"
           />
+        </div>
+      </div>
+      
+      <div className="border-t border-blue-200 pt-4">
+        <label className="flex items-center gap-2 font-bold text-purple-700 mb-2">
+          <Copy className="w-4 h-4" /> Bài tập tương tự (Khắc sâu kiến thức - Tùy chọn)
+        </label>
+        <div className="space-y-3">
+          <div className="bg-white">
+            <RichTextEditor 
+              value={currentSimilarExercise.question}
+              onChange={(value) => updateSimilarExercise('question', value)}
+              placeholder="Nhập nội dung bài tập tương tự (kèm theo các đáp án A, B, C, D nếu là trắc nghiệm)..."
+              className="h-32 mb-12"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Đáp án đúng của bài tương tự:</label>
+            <input 
+              type="text"
+              value={currentSimilarExercise.answer}
+              onChange={(e) => updateSimilarExercise('answer', e.target.value)}
+              placeholder="Nhập đáp án đúng (VD: A, B, ĐÚNG, SAI, 15cm...)"
+              className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+            />
+          </div>
         </div>
       </div>
     </div>

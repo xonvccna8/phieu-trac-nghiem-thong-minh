@@ -7,19 +7,24 @@ export interface Class {
   createdAt: number;
 }
 
+export interface SimilarExercise {
+  question: string; // Nội dung câu hỏi tương tự
+  answer: string;   // Đáp án đúng (A/B/C/D, True/False, hoặc dạng text)
+}
+
 export interface Exam {
   id: string;
   title: string;
   teacherId: string;
-  part1: Record<number, { answer?: string, explanation?: string, hint?: string }>;
+  part1: Record<number, { answer?: string, explanation?: string, hint?: string, similarExercise?: SimilarExercise }>;
   part2: Record<number, { 
     answers: Record<string, boolean>;
-    explanations?: Record<string, { explanation?: string, hint?: string }>;
+    explanations?: Record<string, { explanation?: string, hint?: string, similarExercise?: SimilarExercise }>;
     // Keep these for backward compatibility if needed, but we'll use explanations[sub] going forward
     explanation?: string; 
     hint?: string;
   }>;
-  part3: Record<number, { answer?: string, explanation?: string, hint?: string }>;
+  part3: Record<number, { answer?: string, explanation?: string, hint?: string, similarExercise?: SimilarExercise }>;
   createdAt: number;
 }
 
