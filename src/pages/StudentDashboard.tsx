@@ -268,7 +268,7 @@ export default function StudentDashboard() {
                           <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
                             <button 
                               onClick={() => navigate(`/exam/${assignment.id}?mode=REVIEW`)}
-                              className="shrink-0 px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all w-full sm:w-auto bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200"
+                              className="shrink-0 px-4 py-2 sm:px-3 sm:py-1.5 sm:text-sm rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all w-full sm:w-auto bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200"
                             >
                               <Eye className="w-4 h-4" />
                               Xem chi tiết
@@ -276,7 +276,7 @@ export default function StudentDashboard() {
                             {(assignment.mode === 'PRACTICE' || (assignment.mode === 'EXAM' && studentAttempts.length < (assignment.maxAttempts || 1))) && (
                               <button 
                                 onClick={() => handleStartAssignment(assignment)}
-                                className="shrink-0 px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all w-full sm:w-auto bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200"
+                                className="shrink-0 px-4 py-2 sm:px-3 sm:py-1.5 sm:text-sm rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all w-full sm:w-auto bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200"
                               >
                                 <PlayCircle className="w-4 h-4" />
                                 Làm lại {assignment.mode === 'EXAM' ? `(còn ${((assignment.maxAttempts || 1) - studentAttempts.length)} lần)` : ''}
