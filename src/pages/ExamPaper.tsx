@@ -780,7 +780,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
               <p className="text-gray-600 font-medium text-sm md:text-base">Trắc nghiệm trả lời ngắn (6 câu)</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-8">
               {Array.from({ length: 6 }).map((_, i) => {
                 const qNum = i + 1;
                 const isCurrent = mode === 'PRACTICE' && currentQuestion?.part === 3 && currentQuestion.num === qNum;
