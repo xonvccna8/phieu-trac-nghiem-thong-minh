@@ -37,6 +37,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   );
   const [practiceFeedback, setPracticeFeedback] = useState<'CORRECT' | 'WRONG_1' | 'WRONG_2' | null>(null);
   const [wrongAttempts, setWrongAttempts] = useState<number>(0);
+  const [reflectionText, setReflectionText] = useState<string>('');
   const [alertDialog, setAlertDialog] = useState<{isOpen: boolean, message: string, onClose: () => void}>({isOpen: false, message: '', onClose: () => {}});
 
   const [reviewTab, setReviewTab] = useState<'STUDENT_WORK' | 'ANSWER_KEY'>('STUDENT_WORK');
@@ -336,22 +337,33 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
     
     let explanation = 'Chưa có lời giải chi tiết cho câu này.';
     let hint = undefined;
+    let reflectionQuestion = 'Em hãy tóm tắt ngắn gọn cách làm / lý do chọn đáp án này:';
 
     if (part === 1) {
-      explanation = exam.part1[qNum]?.explanation || explanation;
-      hint = exam.part1[qNum]?.hint;
+      explanation = exam?.part1[qNum]?.explanation || explanation;
+      hint = exam?.part1[qNum]?.hint;
+      const correctAns = exam?.part1[qNum]?.answer;
+      const wrongOptions = ['A', 'B', 'C', 'D'].filter(opt => opt !== correctAns);
+      if (wrongOptions.length > 0) {
+        const randomWrongOpt = wrongOptions[(qNum * 7) % wrongOptions.length]; // Deterministic random
+        reflectionQuestion = `Dựa vào lời giải trên, em hãy giải thích ngắn gọn: Tại sao đáp án ${randomWrongOpt} lại SAI?`;
+      }
     } else if (part === 2 && sub) {
-      const subData = exam.part2[qNum]?.explanations?.[sub];
-      explanation = subData?.explanation || exam.part2[qNum]?.explanation || explanation;
-      hint = subData?.hint || exam.part2[qNum]?.hint;
+      const subData = exam?.part2[qNum]?.explanations?.[sub];
+      explanation = subData?.explanation || exam?.part2[qNum]?.explanation || explanation;
+      hint = subData?.hint || exam?.part2[qNum]?.hint;
+      const isTrue = exam?.part2[qNum]?.answers?.[sub];
+      reflectionQuestion = `Theo em, từ khóa hay kiến thức cốt lõi nào quyết định ý ${sub}) là ${isTrue ? 'ĐÚNG' : 'SAI'}?`;
     } else if (part === 3) {
-      explanation = exam.part3[qNum]?.explanation || explanation;
-      hint = exam.part3[qNum]?.hint;
+      explanation = exam?.part3[qNum]?.explanation || explanation;
+      hint = exam?.part3[qNum]?.hint;
+      reflectionQuestion = 'Em hãy ghi lại công thức hoặc bước giải quan trọng nhất của câu này:';
     }
 
     const handleNext = () => {
       setPracticeFeedback(null);
       setWrongAttempts(0);
+      setReflectionText('');
       if (part === 1) {
         if (qNum < 18) setCurrentQuestion({ part: 1, num: qNum + 1 });
         else setCurrentQuestion({ part: 2, num: 1 });
@@ -372,17 +384,63 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
     };
 
     return (
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-md bg-white rounded-xl shadow-2xl border border-gray-100 p-6 z-50 animate-in slide-in-from-bottom-10">
-        {practiceFeedback === 'CORRECT' && (
-          <div className="text-center">
-            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-green-600 mb-2">Chính xác!</h3>
-            <p className="text-gray-600 mb-6">Làm tốt lắm, tiếp tục phát huy nhé.</p>
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-md bg-white rounded-xl shadow-2xl border border-gray-100 p-6 z-50 animate-in slide-in-from-bottom-10 max-h-[85vh] flex flex-col">
+        {(practiceFeedback === 'CORRECT' || practiceFeedback === 'WRONG_2') && (
+          <div className="text-left flex flex-col h-full overflow-hidden">
+            <div className="flex items-center gap-3 mb-4 shrink-0">
+              {practiceFeedback === 'CORRECT' ? (
+                <>
+                  <CheckCircle2 className="w-8 h-8 text-green-500" />
+                  <h3 className="text-xl font-bold text-green-600">Chính xác!</h3>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-8 h-8 text-red-500" />
+                  <h3 className="text-xl font-bold text-red-600">Vẫn chưa chính xác</h3>
+                </>
+              )}
+            </div>
+            
+            <div className="overflow-y-auto flex-1 pr-2 mb-4 space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-2">
+                  <Lightbulb className="w-5 h-5" /> Hướng dẫn giải chi tiết {part === 2 && sub ? `(Ý ${sub})` : ''}:
+                </h4>
+                <div className="text-blue-900 text-sm leading-relaxed whitespace-pre-wrap">
+                  <RichTextDisplay html={explanation} />
+                </div>
+                {hint && (
+                  <div className="mt-3 text-sm text-orange-700 bg-orange-50 p-3 rounded-lg border border-orange-200">
+                    <strong>💡 Mẹo tránh nhầm:</strong> <RichTextDisplay html={hint} />
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                <h4 className="font-bold text-purple-800 mb-2 text-sm flex items-center gap-1.5">
+                  <span className="text-lg">🧠</span> Củng cố kiến thức:
+                </h4>
+                <p className="text-purple-700 text-sm mb-3 font-medium leading-relaxed">{reflectionQuestion}</p>
+                <textarea
+                  value={reflectionText}
+                  onChange={(e) => setReflectionText(e.target.value)}
+                  placeholder="Ghi chú lại để hiểu sâu hơn (nhập ít nhất 10 ký tự)..."
+                  className="w-full bg-white border border-purple-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-300 outline-none resize-none min-h-[80px]"
+                />
+              </div>
+            </div>
+
             <button 
               onClick={handleNext}
-              className="w-full py-3 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600"
+              disabled={reflectionText.trim().length < 10}
+              className={cn(
+                "w-full py-3 text-white rounded-lg font-bold transition-all shrink-0 flex items-center justify-center gap-2",
+                reflectionText.trim().length < 10 
+                  ? "bg-gray-300 cursor-not-allowed text-gray-500" 
+                  : (practiceFeedback === 'CORRECT' ? "bg-green-500 hover:bg-green-600" : "bg-blue-600 hover:bg-blue-700")
+              )}
             >
-              Tiếp tục <ChevronRight className="inline w-5 h-5" />
+              {reflectionText.trim().length < 10 ? "Hãy trả lời câu hỏi trên để tiếp tục" : "Đã hiểu & Tiếp tục"} <ChevronRight className="w-5 h-5" />
             </button>
           </div>
         )}
@@ -397,34 +455,6 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
               className="w-full py-3 bg-orange-500 text-white rounded-lg font-bold hover:bg-orange-600"
             >
               Thử lại ngay
-            </button>
-          </div>
-        )}
-
-        {practiceFeedback === 'WRONG_2' && (
-          <div className="text-left">
-            <div className="flex items-center gap-3 mb-4">
-              <AlertCircle className="w-8 h-8 text-red-500" />
-              <h3 className="text-xl font-bold text-red-600">Vẫn chưa chính xác</h3>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg mb-6">
-              <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-2">
-                <Lightbulb className="w-5 h-5" /> Hướng dẫn giải {part === 2 && sub ? `(Ý ${sub})` : ''}:
-              </h4>
-              <div className="text-blue-900 text-sm leading-relaxed">
-                <RichTextDisplay html={explanation} />
-              </div>
-              {hint && (
-                <div className="mt-3 text-sm text-orange-700 bg-orange-50 p-2 rounded border border-orange-200">
-                  <strong>Mẹo tránh nhầm:</strong> <RichTextDisplay html={hint} />
-                </div>
-              )}
-            </div>
-            <button 
-              onClick={handleNext}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700"
-            >
-              Em đã hiểu rồi
             </button>
           </div>
         )}
