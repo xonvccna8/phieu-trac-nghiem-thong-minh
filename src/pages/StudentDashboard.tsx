@@ -6,10 +6,10 @@ import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { store } from '@/lib/store';
 import { Assignment, Attempt, Exam, Student, Class } from '@/types';
-import { clsx, type ClassValue } from 'clsx';
+import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-function cn(...inputs: ClassValue[]) {
+function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
 }
 
@@ -122,7 +122,7 @@ export default function StudentDashboard() {
         <div className="flex items-center justify-between mb-2">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">
-              Chào, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">{loggedInStudent.fullName.split(' ').pop()}</span> 👋
+              Chào, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">{loggedInStudent.fullName ? loggedInStudent.fullName.split(' ').pop() : 'bạn'}</span> 👋
             </h1>
             <p className="text-emerald-200/60 text-sm mt-1">Lớp: {studentClass || 'Đang cập nhật'} | SBD: {loggedInStudent.sbd}</p>
           </div>
@@ -218,7 +218,7 @@ export default function StudentDashboard() {
                             {assignment.mode === 'EXAM' ? 'THI ONLINE' : 'ÔN LUYỆN'}
                           </span>
                           <span className="text-xs text-slate-400 flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> Hạn: {assignment.dueDate.split('T')[0]}
+                            <Clock className="w-3 h-3" /> Hạn: {assignment.dueDate ? assignment.dueDate.split('T')[0] : 'Không xác định'}
                           </span>
                         </div>
                         <h3 className="font-bold text-white line-clamp-1">{exam?.title || 'Đề thi'}</h3>

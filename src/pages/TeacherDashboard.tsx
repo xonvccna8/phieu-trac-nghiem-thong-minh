@@ -6,10 +6,10 @@ import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { store } from '@/lib/store';
 import { Exam, Assignment, Attempt, Student, Class } from '@/types';
-import { clsx, type ClassValue } from 'clsx';
+import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-function cn(...inputs: ClassValue[]) {
+function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
 }
 
@@ -314,7 +314,7 @@ export default function TeacherDashboard() {
                                     {assignment.mode === 'EXAM' ? 'THI ONLINE' : 'ÔN LUYỆN'}
                                   </span>
                                   <span className="text-xs text-slate-400 flex items-center gap-1">
-                                    <Clock className="w-3 h-3" /> Hạn: {assignment.dueDate.split('T')[0]}
+                                    <Clock className="w-3 h-3" /> Hạn: {assignment.dueDate ? assignment.dueDate.split('T')[0] : 'Không xác định'}
                                   </span>
                                 </div>
                                 <h3 className="font-bold text-white">{exam?.title || 'Đề thi không xác định'}</h3>
@@ -397,7 +397,7 @@ export default function TeacherDashboard() {
                     exams.map(exam => (
                       <tr key={exam.id} className="hover:bg-slate-800/50 transition-colors">
                         <td className="p-4 font-bold text-white">{exam.title}</td>
-                        <td className="p-4 text-slate-400">{new Date(exam.createdAt).toLocaleDateString('vi-VN')}</td>
+                        <td className="p-4 text-slate-400">{exam.createdAt ? new Date(exam.createdAt).toLocaleDateString('vi-VN') : 'Không xác định'}</td>
                         <td className="p-4 flex gap-2 justify-end">
                           <button 
                             onClick={() => navigate(`/teacher/exam/edit/${exam.id}`)}
@@ -577,16 +577,16 @@ export default function TeacherDashboard() {
                       const studentBestAttempts = new Map<string, Attempt>();
                       assignmentAttempts.forEach(attempt => {
                         const existing = studentBestAttempts.get(attempt.studentId);
-                        if (!existing || attempt.score > existing.score) studentBestAttempts.set(attempt.studentId, attempt);
+                        if (!existing || (attempt.score || 0) > (existing.score || 0)) studentBestAttempts.set(attempt.studentId, attempt);
                       });
 
-                      const sortedAttempts = Array.from(studentBestAttempts.values()).sort((a, b) => b.score - a.score);
+                      const sortedAttempts = Array.from(studentBestAttempts.values()).sort((a, b) => (b.score || 0) - (a.score || 0));
                       if (sortedAttempts.length === 0) return <tr><td colSpan={4} className="p-8 text-center text-slate-500">Chưa có bài nộp.</td></tr>;
 
                       let currentRank = 1, previousScore = -1;
                       return sortedAttempts.map((attempt, index) => {
-                        if (attempt.score !== previousScore) currentRank = index + 1;
-                        previousScore = attempt.score;
+                        if ((attempt.score || 0) !== previousScore) currentRank = index + 1;
+                        previousScore = attempt.score || 0;
                         const student = students.find(s => s.id === attempt.studentId);
                         
                         return (
@@ -597,8 +597,8 @@ export default function TeacherDashboard() {
                               <div className="text-xs text-slate-400 font-mono">{student?.sbd}</div>
                             </td>
                             <td className="p-4 text-center">
-                              <span className={cn("font-bold text-lg", attempt.score >= 8 ? 'text-emerald-400' : attempt.score >= 5 ? 'text-teal-400' : 'text-rose-400')}>
-                                {attempt.score.toFixed(1)}
+                              <span className={cn("font-bold text-lg", (attempt.score || 0) >= 8 ? 'text-emerald-400' : (attempt.score || 0) >= 5 ? 'text-teal-400' : 'text-rose-400')}>
+                                {(attempt.score || 0).toFixed(1)}
                               </span>
                             </td>
                             <td className="p-4 text-right">
