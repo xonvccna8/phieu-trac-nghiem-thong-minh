@@ -15,7 +15,7 @@ import { useLocation } from 'react-router-dom';
 function ProtectedRoute({ children, allowedRole }: { children: React.ReactNode, allowedRole: 'TEACHER' | 'STUDENT' }) {
   const { userProfile, loading } = useAuth();
   
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
+  if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400"><div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div></div>;
   
   if (!userProfile) return <Navigate to="/auth" replace />;
   
@@ -30,7 +30,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-gray-100 font-sans">
+        <div className="min-h-screen bg-slate-950 font-sans text-slate-100">
           <Routes>
             <Route path="/" element={<Navigate to="/auth" replace />} />
             <Route path="/auth" element={<AuthPage />} />
