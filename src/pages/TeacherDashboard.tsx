@@ -68,17 +68,19 @@ export default function TeacherDashboard() {
     const unsubStudents = store.subscribeToStudents(setStudents, userProfile.uid);
 
     return () => {
-      unsubClasses();
-      unsubExams();
-      unsubAssignments();
-      unsubStudents();
+      if (unsubClasses) unsubClasses();
+      if (unsubExams) unsubExams();
+      if (unsubAssignments) unsubAssignments();
+      if (unsubStudents) unsubStudents();
     };
   }, [userProfile?.uid]);
 
   useEffect(() => {
     const assignmentIds = assignments.map(a => a.id);
     const unsubAttempts = store.subscribeToTeacherAttempts(setAttempts, assignmentIds);
-    return () => unsubAttempts();
+    return () => {
+      if (unsubAttempts) unsubAttempts();
+    };
   }, [assignments]);
 
   const handleAddClassSubmit = async (e: React.FormEvent) => {

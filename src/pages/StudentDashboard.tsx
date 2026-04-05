@@ -52,10 +52,10 @@ export default function StudentDashboard() {
     const unsubAttempts = store.subscribeToClassAttempts(setAllAttempts, loggedInStudent.classId);
 
     return () => {
-      unsubClasses();
-      unsubExams();
-      unsubAssignments();
-      unsubAttempts();
+      if (unsubClasses) unsubClasses();
+      if (unsubExams) unsubExams();
+      if (unsubAssignments) unsubAssignments();
+      if (unsubAttempts) unsubAttempts();
     };
   }, [loggedInStudent]);
 
