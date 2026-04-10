@@ -166,6 +166,18 @@ export default function TeacherDashboard() {
     });
   };
 
+
+  const handleDeleteAssignment = (assignmentId: string, examTitle: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      message: `Bạn có chắc chắn muốn xóa bài giao "${examTitle}" không? Toàn bộ bài làm và bản nháp của học sinh cũng sẽ bị xóa theo.`,
+      onConfirm: async () => {
+        await store.deleteAssignment(assignmentId);
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExamId || !userProfile?.uid) {
@@ -603,6 +615,13 @@ export default function TeacherDashboard() {
                                   </div>
                                 )}
                               </div>
+                              <button
+                                onClick={() => handleDeleteAssignment(assignment.id, exam?.title || 'Bài tập này')}
+                                className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200"
+                                title="Xóa bài giao này"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
                             
                             <div>

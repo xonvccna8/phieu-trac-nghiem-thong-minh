@@ -168,6 +168,18 @@ export const store = {
   saveAssignment: async (assignment: Assignment) => {
     await setDoc(doc(db, 'assignments', assignment.id), assignment);
   },
+  deleteAssignment: async (assignmentId: string) => {
+    // Xóa tất cả attempts và drafts liên quan trước
+    const [attemptsSnap, draftsSnap] = await Promise.all([
+      getDocs(query(collection(db, 'attempts'), where('assignmentId', '==', assignmentId))),
+      getDocs(query(collection(db, 'attemptDrafts'), where('assignmentId', '==', assignmentId))),
+    ]);
+    await Promise.all([
+      ...attemptsSnap.docs.map(d => deleteDoc(doc(db, 'attempts', d.id))),
+      ...draftsSnap.docs.map(d => deleteDoc(doc(db, 'attemptDrafts', d.id))),
+    ]);
+    await deleteDoc(doc(db, 'assignments', assignmentId));
+  },
   getAssignmentById: async (id: string): Promise<Assignment | undefined> => {
     try {
       const d = await getDoc(doc(db, 'assignments', id));
