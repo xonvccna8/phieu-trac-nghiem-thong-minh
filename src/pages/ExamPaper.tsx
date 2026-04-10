@@ -393,11 +393,10 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
       part3Score: scores.p3Score,
       unansweredCount: scores.unansweredCount,
       startedAt,
-      durationSeconds: Math.max(0, Math.floor((submittedAt - startedAt) / 1000)),
       autoSubmitted: options?.autoSubmitted || false,
       tabSwitchCount,
-      examVersionId: examVersion?.id,
-      examVersionCode: examVersion?.code,
+      ...(examVersion?.id && { examVersionId: examVersion.id }),
+      ...(examVersion?.code && { examVersionCode: examVersion.code }),
       submittedAt
     };
     
@@ -470,8 +469,8 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
         startedAt,
         updatedAt: Date.now(),
         tabSwitchCount,
-        examVersionId: examVersion?.id,
-        examVersionCode: examVersion?.code,
+        ...(examVersion?.id && { examVersionId: examVersion.id }),
+        ...(examVersion?.code && { examVersionCode: examVersion.code }),
       });
       setLastSavedAt(Date.now());
     };
