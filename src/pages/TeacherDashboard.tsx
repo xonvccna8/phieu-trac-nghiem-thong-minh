@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Users, BarChart3, Plus, Settings, BrainCircuit, Calendar, Clock, CheckCircle2, X, GraduationCap, Trash2, School, AlertCircle, LogOut, Edit3, Target, Download, Eye } from 'lucide-react';
+import { FileText, Users, BarChart3, Plus, Settings, BrainCircuit, Calendar, Clock, CheckCircle2, X, GraduationCap, Trash2, School, AlertCircle, LogOut, Edit3, Target, Download, Eye, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -146,6 +146,21 @@ export default function TeacherDashboard() {
       message: `Bạn có chắc chắn muốn xóa bài làm của học sinh "${studentName}"?`,
       onConfirm: async () => {
         await store.deleteAttempt(attemptId);
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  /**
+   * Giải phóng học sinh khỏi trạng thái kẹt: xóa attempt (nếu có) và draft để em
+   * có thể vào làm lại từ đầu.
+   */
+  const handleResetStudentAttempt = (assignmentId: string, studentId: string, studentName: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      message: `Cho phép "${studentName}" làm lại bài này? Toàn bộ bài làm và bản nháp của em sẽ bị xóa để em có thể bắt đầu lại.`,
+      onConfirm: async () => {
+        await store.resetStudentAttempt(assignmentId, studentId);
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       }
     });
@@ -947,14 +962,15 @@ export default function TeacherDashboard() {
                     <tr className="bg-slate-50 text-slate-500">
                       <th className="p-4 font-bold uppercase tracking-wider text-xs text-center">Hạng</th>
                       <th className="p-4 font-bold uppercase tracking-wider text-xs">Học sinh</th>
+                      <th className="p-4 font-bold uppercase tracking-wider text-xs text-center">Trạng thái</th>
                       <th className="p-4 font-bold uppercase tracking-wider text-xs text-center">Điểm</th>
                       <th className="p-4 font-bold uppercase tracking-wider text-xs text-right">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {(() => {
+                     {(() => {
                       const assignment = assignments.find(a => a.examId === selectedExamForResults && a.classId === selectedClassForResults);
-                      if (!assignment) return <tr><td colSpan={4} className="p-8 text-center text-slate-500">Không tìm thấy bài tập.</td></tr>;
+                      if (!assignment) return <tr><td colSpan={5} className="p-8 text-center text-slate-500">Không tìm thấy bài tập.</td></tr>;
 
                       const assignmentAttempts = attempts.filter(a => a.assignmentId === assignment.id);
                       const studentBestAttempts = new Map<string, Attempt>();
@@ -963,45 +979,91 @@ export default function TeacherDashboard() {
                         if (!existing || (attempt.score || 0) > (existing.score || 0)) studentBestAttempts.set(attempt.studentId, attempt);
                       });
 
-                      const sortedAttempts = Array.from(studentBestAttempts.values()).sort((a, b) => (b.score || 0) - (a.score || 0));
-                      if (sortedAttempts.length === 0) return <tr><td colSpan={4} className="p-8 text-center text-slate-500">Chưa có bài nộp.</td></tr>;
+                      // Những học sinh chỉ có draft (khận bài, chưa nộp) nhưng chưa có attempt thể hiện
+                      const assignmentDrafts = attemptDrafts.filter(d => d.assignmentId === assignment.id);
+                      const stuckStudents = assignmentDrafts.filter(d => !studentBestAttempts.has(d.studentId));
 
-                      return sortedAttempts.map((attempt, index) => {
-                        const currentRank = index + 1;
-                        const student = students.find(s => s.id === attempt.studentId);
-                        
-                        return (
-                          <tr key={attempt.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-4 text-center font-bold text-emerald-400">{currentRank}</td>
-                            <td className="p-4">
-                              <div className="font-bold text-slate-900">{student?.fullName}</div>
-                              <div className="text-xs text-slate-500 font-mono">{student?.sbd}</div>
-                            </td>
-                            <td className="p-4 text-center">
-                              <span className={cn("font-bold text-lg", (attempt.score || 0) >= 8 ? 'text-emerald-400' : (attempt.score || 0) >= 5 ? 'text-teal-400' : 'text-rose-400')}>
-                                {(attempt.score || 0).toFixed(1)}
-                              </span>
-                            </td>
-                            <td className="p-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  onClick={() => handleExportStudentAttempt(attempt)}
-                                  className="px-3 py-2 text-xs font-bold rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 inline-flex items-center gap-1.5"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                  Xuất bài làm
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteAttempt(attempt.id, student?.fullName || '')}
-                                  className="text-rose-400 hover:text-rose-300 p-2 rounded-lg hover:bg-rose-500/10 transition-colors inline-flex"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      });
+                      const sortedAttempts = Array.from(studentBestAttempts.values()).sort((a, b) => (b.score || 0) - (a.score || 0));
+
+                      if (sortedAttempts.length === 0 && stuckStudents.length === 0)
+                        return <tr><td colSpan={5} className="p-8 text-center text-slate-500">Chưa có bài nộp.</td></tr>;
+
+                      return (
+                        <>
+                          {sortedAttempts.map((attempt, index) => {
+                            const student = students.find(s => s.id === attempt.studentId);
+                            return (
+                              <tr key={attempt.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-4 text-center font-bold text-emerald-400">{index + 1}</td>
+                                <td className="p-4">
+                                  <div className="font-bold text-slate-900">{student?.fullName}</div>
+                                  <div className="text-xs text-slate-500 font-mono">{student?.sbd}</div>
+                                </td>
+                                <td className="p-4 text-center">
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                    <CheckCircle2 className="w-3 h-3" />Đã nộp
+                                  </span>
+                                </td>
+                                <td className="p-4 text-center">
+                                  <span className={cn("font-bold text-lg", (attempt.score || 0) >= 8 ? 'text-emerald-500' : (attempt.score || 0) >= 5 ? 'text-teal-500' : 'text-rose-500')}>
+                                    {(attempt.score || 0).toFixed(1)}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-right">
+                                  <div className="flex items-center justify-end gap-2 flex-wrap">
+                                    <button
+                                      onClick={() => handleExportStudentAttempt(attempt)}
+                                      className="px-3 py-1.5 text-xs font-bold rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 inline-flex items-center gap-1.5"
+                                    >
+                                      <Download className="w-3.5 h-3.5" />Xuất bài
+                                    </button>
+                                    <button
+                                      onClick={() => handleResetStudentAttempt(assignment.id, attempt.studentId, student?.fullName || '')}
+                                      className="px-3 py-1.5 text-xs font-bold rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 inline-flex items-center gap-1.5"
+                                      title="Xóa bài làm và cho phép học sinh làm lại"
+                                    >
+                                      <RefreshCw className="w-3.5 h-3.5" />Cho làm lại
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteAttempt(attempt.id, student?.fullName || '')}
+                                      className="text-rose-400 hover:text-rose-300 p-1.5 rounded-lg hover:bg-rose-500/10 transition-colors inline-flex"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {stuckStudents.map(draft => {
+                            const student = students.find(s => s.id === draft.studentId);
+                            return (
+                              <tr key={draft.id} className="hover:bg-amber-50/50 transition-colors bg-amber-50/30">
+                                <td className="p-4 text-center text-slate-400">--</td>
+                                <td className="p-4">
+                                  <div className="font-bold text-slate-900">{student?.fullName}</div>
+                                  <div className="text-xs text-slate-500 font-mono">{student?.sbd}</div>
+                                </td>
+                                <td className="p-4 text-center">
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                                    <AlertCircle className="w-3 h-3" />Đang dở
+                                  </span>
+                                </td>
+                                <td className="p-4 text-center text-slate-400">--</td>
+                                <td className="p-4 text-right">
+                                  <button
+                                    onClick={() => handleResetStudentAttempt(assignment.id, draft.studentId, student?.fullName || '')}
+                                    className="px-3 py-1.5 text-xs font-bold rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 inline-flex items-center gap-1.5"
+                                    title="Xóa bản nháp và cho phép học sinh vào làm lại"
+                                  >
+                                    <RefreshCw className="w-3.5 h-3.5" />Cho làm lại
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </>
+                      );
                     })()}
                   </tbody>
                 </table>
