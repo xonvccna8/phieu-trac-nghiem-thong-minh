@@ -62,6 +62,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   const [activeAITutor, setActiveAITutor] = useState<{part: number, num: number, sub?: string} | null>(null);
   const [aiExplanation, setAiExplanation] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const examVersionDigits = (examVersion?.code || '')
     .toString()
     .padStart(4, ' ')
@@ -371,7 +372,11 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
       return;
     }
 
-    const scores = calculateScore();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      const scores = calculateScore();
     const submittedAt = Date.now();
     const attempt: Attempt = {
       id: Date.now().toString(),
@@ -396,15 +401,25 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
       submittedAt
     };
     
-    await store.saveAttempt(attempt);
-    await store.deleteAttemptDraft(assignment.id, loggedInStudent.id);
-    setAlertDialog({
-      isOpen: true,
-      message: assignment.showScoreImmediately === false || exam?.onlineSettings?.showScoreImmediately === false
-        ? 'Nộp bài thành công! Giáo viên chưa bật chế độ hiển thị điểm ngay. Em hãy chờ công bố kết quả.'
-        : `Nộp bài thành công! Điểm của em là: ${scores.total.toFixed(2)}/10`,
-      onClose: () => navigate('/student')
-    });
+      await store.saveAttempt(attempt);
+      await store.deleteAttemptDraft(assignment.id, loggedInStudent.id);
+      setAlertDialog({
+        isOpen: true,
+        message: assignment.showScoreImmediately === false || exam?.onlineSettings?.showScoreImmediately === false
+          ? 'Nộp bài thành công! Giáo viên chưa bật chế độ hiển thị điểm ngay. Em hãy chờ công bố kết quả.'
+          : `Nộp bài thành công! Điểm của em là: ${scores.total.toFixed(2)}/10`,
+        onClose: () => navigate('/student')
+      });
+    } catch (error: any) {
+      console.error(error);
+      setAlertDialog({
+        isOpen: true,
+        message: `Lỗi khi nộp bài: ${error?.message || 'Vui lòng kiểm tra kết nối mạng và thử lại.'}`,
+        onClose: () => {} // Don't navigate away if it's a network error
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmitRef = React.useRef(handleSubmit);
@@ -1355,21 +1370,29 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
         </div>
 
         {/* Footer Actions */}
-        <div className="bg-gray-50 p-4 md:p-8 border-t-2 border-gray-200 flex justify-center md:justify-end pb-safe">
+        <div className="bg-gray-50 p-4 md:p-8 border-t-2 border-gray-200 flex justify-center md:justify-end safe-pb pb-12 pt-8">
           {mode === 'EXAM' && (
             <button 
               onClick={() => handleSubmit()}
-              className="w-full md:w-auto bg-red-600 hover:bg-red-700 text-white px-8 md:px-12 py-3.5 md:py-4 rounded-xl font-black text-lg md:text-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1"
+              disabled={isSubmitting}
+              className="w-full md:w-auto bg-red-600 hover:bg-red-700 disabled:opacity-75 disabled:cursor-not-allowed text-white px-8 md:px-12 py-3.5 md:py-4 rounded-xl font-black text-lg md:text-xl shadow-[0_8px_30px_rgb(220,38,38,0.3)] hover:shadow-[0_8px_30px_rgb(220,38,38,0.5)] transition-all transform hover:-translate-y-1 active:scale-95"
             >
-              NỘP BÀI THI ({calculateScore().unansweredCount} câu chưa làm)
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin" /> ĐANG TẢI...
+                </span>
+              ) : (
+                `NỘP BÀI THI (${calculateScore().unansweredCount} câu chưa làm)`
+              )}
             </button>
           )}
           {mode === 'PRACTICE' && (
             <button 
               onClick={() => handleSubmit()}
-              className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-3 rounded-xl font-bold shadow-md text-lg"
+              disabled={isSubmitting}
+              className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-75 disabled:cursor-not-allowed text-white px-6 md:px-8 py-3 rounded-xl font-bold shadow-md text-lg active:scale-95 transition-transform"
             >
-              Kết thúc phiên ôn luyện
+              {isSubmitting ? 'ĐANG XỬ LÝ...' : 'Kết thúc phiên ôn luyện'}
             </button>
           )}
         </div>
