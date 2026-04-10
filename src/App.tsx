@@ -8,6 +8,10 @@ import TeacherDashboard from './pages/TeacherDashboard';
 import StudentDashboard from './pages/StudentDashboard';
 import ExamPaper from './pages/ExamPaper';
 import ExamEditor from './pages/ExamEditor';
+import SheetEditorPage from './pages/SheetEditorPage';
+import ExamMixingPage from './pages/ExamMixingPage';
+import SheetMixingPage from './pages/SheetMixingPage';
+import ExamReviewPage from './pages/ExamReviewPage';
 import AuthPage from './pages/AuthPage';
 import { AuthProvider, useAuth } from './lib/AuthContext';
 import { useLocation } from 'react-router-dom';
@@ -15,7 +19,7 @@ import { useLocation } from 'react-router-dom';
 function ProtectedRoute({ children, allowedRole }: { children: React.ReactNode, allowedRole: 'TEACHER' | 'STUDENT' }) {
   const { userProfile, loading } = useAuth();
   
-  if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400"><div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div></div>;
+  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-emerald-600"><div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div></div>;
   
   if (!userProfile) return <Navigate to="/auth" replace />;
   
@@ -30,7 +34,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-slate-950 font-sans text-slate-100">
+        <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
           <Routes>
             <Route path="/" element={<Navigate to="/auth" replace />} />
             <Route path="/auth" element={<AuthPage />} />
@@ -48,6 +52,36 @@ export default function App() {
             <Route path="/teacher/exam/edit/:id" element={
               <ProtectedRoute allowedRole="TEACHER">
                 <ExamEditor />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/sheet/new" element={
+              <ProtectedRoute allowedRole="TEACHER">
+                <SheetEditorPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/sheet/edit/:id" element={
+              <ProtectedRoute allowedRole="TEACHER">
+                <SheetEditorPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/exam/mix/:id" element={
+              <ProtectedRoute allowedRole="TEACHER">
+                <ExamMixingPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/sheet/mix/:id" element={
+              <ProtectedRoute allowedRole="TEACHER">
+                <SheetMixingPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/exam/review" element={
+              <ProtectedRoute allowedRole="TEACHER">
+                <ExamReviewPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/exam/view/:id" element={
+              <ProtectedRoute allowedRole="TEACHER">
+                <ExamReviewPage />
               </ProtectedRoute>
             } />
             

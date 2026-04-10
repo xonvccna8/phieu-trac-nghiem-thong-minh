@@ -37,6 +37,14 @@ export default function AuthPage() {
     }
   }, [userProfile, navigate]);
 
+  // Student accounts are provisioned by teachers -> disable self-registration for STUDENT
+  useEffect(() => {
+    if (role === 'STUDENT' && !isLogin) {
+      setIsLogin(true);
+      setError('Tài khoản học sinh do giáo viên cấp. Vui lòng đăng nhập bằng tài khoản đã được cung cấp.');
+    }
+  }, [role, isLogin]);
+
   useEffect(() => {
     if (!isLogin && role === 'STUDENT') {
       const loadData = async () => {
@@ -64,6 +72,9 @@ export default function AuthPage() {
         await signInWithEmailAndPassword(auth, email, password);
         // Navigation is handled by the useEffect above when userProfile updates
       } else {
+        if (role === 'STUDENT') {
+          throw new Error('Đăng ký tài khoản học sinh đã bị khóa. Vui lòng liên hệ giáo viên để nhận tài khoản.');
+        }
         if (role === 'STUDENT') {
           if (!/^\d{6}$/.test(sbd)) {
             throw new Error('Số báo danh phải bao gồm đúng 6 chữ số.');
@@ -362,13 +373,19 @@ export default function AuthPage() {
             <p className="text-slate-400 text-sm mb-3 font-medium">
               {isLogin ? 'Chưa có tài khoản tham gia?' : 'Đã có tài khoản trên hệ thống?'}
             </p>
-            <button
-              type="button"
-              onClick={() => { setIsLogin(!isLogin); setError(''); }}
-              className="text-sm text-emerald-400 hover:text-emerald-300 font-bold transition-all hover:bg-emerald-500/10 px-4 py-2 rounded-lg"
-            >
-              {isLogin ? 'Tạo tài khoản mới ngay' : 'Quay lại Đăng nhập'}
-            </button>
+            {role === 'TEACHER' ? (
+              <button
+                type="button"
+                onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                className="text-sm text-emerald-400 hover:text-emerald-300 font-bold transition-all hover:bg-emerald-500/10 px-4 py-2 rounded-lg"
+              >
+                {isLogin ? 'Tạo tài khoản mới ngay' : 'Quay lại Đăng nhập'}
+              </button>
+            ) : (
+              <div className="text-xs text-slate-400">
+                Tài khoản học sinh do giáo viên cấp. Vui lòng đăng nhập.
+              </div>
+            )}
           </div>
         </div>
       </div>

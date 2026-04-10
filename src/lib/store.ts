@@ -1,6 +1,6 @@
 import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase';
-import { Exam, Assignment, Attempt, Student, Class, User } from '../types';
+import { Exam, Assignment, Attempt, AttemptDraft, Student, Class, User, ExamVersion } from '../types';
 
 export const store = {
   getClasses: async (teacherId?: string): Promise<Class[]> => {
@@ -30,7 +30,9 @@ export const store = {
         q = query(q, where('teacherId', '==', teacherId));
       }
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => doc.data() as Exam);
+      return snapshot.docs
+        .map(doc => doc.data() as Exam)
+        .filter(exam => !exam.isDeleted && !exam.isExamVersion);
     } catch (error) {
       console.error("Error getting exams:", error);
       return [];
@@ -39,14 +41,105 @@ export const store = {
   saveExam: async (exam: Exam) => {
     await setDoc(doc(db, 'exams', exam.id), exam);
   },
+  softDeleteExam: async (id: string) => {
+    // Mark exam as deleted (soft delete)
+    await setDoc(doc(db, 'exams', id), { isDeleted: true, status: 'ARCHIVED', updatedAt: Date.now() }, { merge: true });
+
+    // Cascade cleanup: delete assignments and related attempts/drafts for this exam
+    try {
+      const assignmentsSnap = await getDocs(query(collection(db, 'assignments'), where('examId', '==', id)));
+      const assignmentIds: string[] = assignmentsSnap.docs.map((d) => d.id);
+
+      for (const assignmentDoc of assignmentsSnap.docs) {
+        const assignmentId = assignmentDoc.id;
+
+        // Delete attempts of this assignment
+        const attemptsSnap = await getDocs(query(collection(db, 'attempts'), where('assignmentId', '==', assignmentId)));
+        await Promise.all(attemptsSnap.docs.map((d) => deleteDoc(doc(db, 'attempts', d.id))));
+
+        // Delete attempt drafts of this assignment
+        const draftsSnap = await getDocs(query(collection(db, 'attemptDrafts'), where('assignmentId', '==', assignmentId)));
+        await Promise.all(draftsSnap.docs.map((d) => deleteDoc(doc(db, 'attemptDrafts', d.id))));
+
+        // Finally delete the assignment itself
+        await deleteDoc(doc(db, 'assignments', assignmentId));
+      }
+    } catch (error) {
+      console.error('Error cascading delete for exam:', error);
+    }
+  },
   getExamById: async (id: string): Promise<Exam | undefined> => {
     try {
       const d = await getDoc(doc(db, 'exams', id));
-      return d.exists() ? (d.data() as Exam) : undefined;
+      if (!d.exists()) return undefined;
+      const exam = d.data() as Exam;
+      return exam.isDeleted ? undefined : exam;
     } catch (error) {
       console.error("Error getting exam:", error);
       return undefined;
     }
+  },
+  getExamVersions: async (examId: string): Promise<ExamVersion[]> => {
+    try {
+      const q = query(collection(db, 'exams'), where('parentExamId', '==', examId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs
+        .map(doc => doc.data() as Exam)
+        .filter(exam => exam.isExamVersion)
+        .map((examDoc) => ({
+          id: examDoc.id,
+          examId: examDoc.parentExamId || examId,
+          teacherId: examDoc.teacherId,
+          code: examDoc.versionCode || 'A',
+          derivedExam: examDoc,
+          mappings: examDoc.versionMappings || [],
+          config: examDoc.versionConfig || examDoc.mixingSettings || {},
+          createdAt: examDoc.createdAt,
+        }))
+        .sort((a, b) => a.code.localeCompare(b.code));
+    } catch (error) {
+      console.error("Error getting exam versions:", error);
+      return [];
+    }
+  },
+  getExamVersionById: async (id: string): Promise<ExamVersion | undefined> => {
+    try {
+      const d = await getDoc(doc(db, 'exams', id));
+      if (!d.exists()) return undefined;
+      const examDoc = d.data() as Exam;
+      if (!examDoc.isExamVersion) return undefined;
+      return {
+        id: examDoc.id,
+        examId: examDoc.parentExamId || '',
+        teacherId: examDoc.teacherId,
+        code: examDoc.versionCode || 'A',
+        derivedExam: examDoc,
+        mappings: examDoc.versionMappings || [],
+        config: examDoc.versionConfig || examDoc.mixingSettings || {},
+        createdAt: examDoc.createdAt,
+      };
+    } catch (error) {
+      console.error("Error getting exam version:", error);
+      return undefined;
+    }
+  },
+  saveExamVersion: async (version: ExamVersion) => {
+    await setDoc(doc(db, 'exams', version.id), {
+      ...version.derivedExam,
+      id: version.id,
+      parentExamId: version.examId,
+      isExamVersion: true,
+      versionCode: version.code,
+      versionMappings: version.mappings,
+      versionConfig: version.config,
+      createdAt: version.createdAt,
+      updatedAt: Date.now(),
+    } as Exam);
+  },
+  replaceExamVersions: async (examId: string, versions: ExamVersion[]) => {
+    const existing = await store.getExamVersions(examId);
+    await Promise.all(existing.map((version) => deleteDoc(doc(db, 'exams', version.id))));
+    await Promise.all(versions.map((version) => store.saveExamVersion(version)));
   },
 
   getAssignments: async (teacherId?: string): Promise<Assignment[]> => {
@@ -103,6 +196,26 @@ export const store = {
   },
   saveAttempt: async (attempt: Attempt) => {
     await setDoc(doc(db, 'attempts', attempt.id), attempt);
+  },
+  deleteAttempt: async (id: string) => {
+    await deleteDoc(doc(db, 'attempts', id));
+  },
+  saveAttemptDraft: async (draft: AttemptDraft) => {
+    await setDoc(doc(db, 'attemptDrafts', draft.id), draft);
+  },
+  getAttemptDraft: async (assignmentId: string, studentId: string): Promise<AttemptDraft | undefined> => {
+    try {
+      const draftId = `${assignmentId}_${studentId}`;
+      const d = await getDoc(doc(db, 'attemptDrafts', draftId));
+      return d.exists() ? (d.data() as AttemptDraft) : undefined;
+    } catch (error) {
+      console.error("Error getting attempt draft:", error);
+      return undefined;
+    }
+  },
+  deleteAttemptDraft: async (assignmentId: string, studentId: string) => {
+    const draftId = `${assignmentId}_${studentId}`;
+    await deleteDoc(doc(db, 'attemptDrafts', draftId));
   },
   getAttemptByAssignmentId: async (assignmentId: string): Promise<Attempt | undefined> => {
     try {
@@ -178,7 +291,28 @@ export const store = {
       q = query(q, where('teacherId', '==', teacherId));
     }
     return onSnapshot(q, (snapshot: any) => {
-      callback(snapshot.docs.map((doc: any) => doc.data() as Exam));
+      callback(snapshot.docs.map((doc: any) => doc.data() as Exam).filter((exam: Exam) => !exam.isDeleted && !exam.isExamVersion));
+    }, (error: any) => console.error(error));
+  },
+  subscribeToExamVersions: (callback: (versions: ExamVersion[]) => void, examId: string) => {
+    const q = query(collection(db, 'exams'), where('parentExamId', '==', examId));
+    return onSnapshot(q, (snapshot: any) => {
+      callback(
+        snapshot.docs
+          .map((doc: any) => doc.data() as Exam)
+          .filter((exam: Exam) => exam.isExamVersion)
+          .map((examDoc: Exam) => ({
+            id: examDoc.id,
+            examId: examDoc.parentExamId || examId,
+            teacherId: examDoc.teacherId,
+            code: examDoc.versionCode || 'A',
+            derivedExam: examDoc,
+            mappings: examDoc.versionMappings || [],
+            config: examDoc.versionConfig || examDoc.mixingSettings || {},
+            createdAt: examDoc.createdAt,
+          }))
+          .sort((a: ExamVersion, b: ExamVersion) => a.code.localeCompare(b.code))
+      );
     }, (error: any) => console.error(error));
   },
   subscribeToAssignments: (callback: (assignments: Assignment[]) => void, teacherId?: string) => {
@@ -211,6 +345,12 @@ export const store = {
       callback(snapshot.docs.map(doc => doc.data() as Attempt));
     }, (error) => console.error(error));
   },
+  subscribeToClassAttemptDrafts: (callback: (drafts: AttemptDraft[]) => void, classId: string) => {
+    const q = query(collection(db, 'attemptDrafts'), where('classId', '==', classId));
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => doc.data() as AttemptDraft));
+    }, (error) => console.error(error));
+  },
   subscribeToTeacherAttempts: (callback: (attempts: Attempt[]) => void, teacherAssignmentIds: string[]) => {
     // If a teacher has no assignments, return empty array immediately
     if (teacherAssignmentIds.length === 0) {
@@ -226,6 +366,19 @@ export const store = {
     return onSnapshot(q, (snapshot: any) => {
       const allAttempts = snapshot.docs.map((doc: any) => doc.data() as Attempt);
       const filtered = allAttempts.filter(a => teacherAssignmentIds.includes(a.assignmentId));
+      callback(filtered);
+    }, (error: any) => console.error(error));
+  },
+  subscribeToTeacherAttemptDrafts: (callback: (drafts: AttemptDraft[]) => void, teacherAssignmentIds: string[]) => {
+    if (teacherAssignmentIds.length === 0) {
+      callback([]);
+      return () => {};
+    }
+
+    const q = collection(db, 'attemptDrafts');
+    return onSnapshot(q, (snapshot: any) => {
+      const allDrafts = snapshot.docs.map((doc: any) => doc.data() as AttemptDraft);
+      const filtered = allDrafts.filter(d => teacherAssignmentIds.includes(d.assignmentId));
       callback(filtered);
     }, (error: any) => console.error(error));
   },

@@ -16,6 +16,7 @@ interface RichTextEditorProps {
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeholder, className = "h-48 mb-12" }) => {
   const quillRef = useRef<ReactQuill>(null);
+  const arrowPanelRef = useRef<HTMLDivElement>(null);
   const [arrowModal, setArrowModal] = useState<{ isOpen: boolean, type: 'right' | 'both', index: number } | null>(null);
   const [topCondition, setTopCondition] = useState('');
   const [bottomCondition, setBottomCondition] = useState('');
@@ -120,6 +121,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
     };
   }, []);
 
+  useEffect(() => {
+    if (arrowModal?.isOpen) {
+      arrowPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [arrowModal]);
+
   const formatCondition = (text: string) => {
     if (!text) return '';
     
@@ -208,7 +215,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
       />
 
       {arrowModal?.isOpen && (
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 bg-white p-4 rounded-lg shadow-xl border border-gray-200 w-80">
+        <div
+          ref={arrowPanelRef}
+          className="mx-3 mb-3 rounded-lg border border-blue-200 bg-blue-50/60 p-4 shadow-sm"
+        >
           <h3 className="font-bold text-gray-800 mb-3">
             Chèn mũi tên {arrowModal.type === 'right' ? '1 chiều' : '2 chiều'}
           </h3>
@@ -220,7 +230,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 value={topCondition}
                 onChange={e => setTopCondition(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white"
                 placeholder="Để trống nếu không có"
                 autoFocus
               />
@@ -232,7 +242,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange,
                 value={bottomCondition}
                 onChange={e => setBottomCondition(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 bg-white"
                 placeholder="Để trống nếu không có"
               />
             </div>

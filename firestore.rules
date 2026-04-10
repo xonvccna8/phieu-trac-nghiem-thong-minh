@@ -111,6 +111,17 @@ service cloud.firestore {
              isNumber('submittedAt');
     }
 
+    function isValidAttemptDraft() {
+      return hasRequiredFields(['assignmentId', 'studentId', 'answersPart1', 'answersPart2', 'answersPart3', 'startedAt', 'updatedAt']) &&
+             isString('assignmentId') &&
+             isString('studentId') &&
+             request.resource.data.answersPart1 is map &&
+             request.resource.data.answersPart2 is map &&
+             request.resource.data.answersPart3 is map &&
+             isNumber('startedAt') &&
+             isNumber('updatedAt');
+    }
+
     function isValidUser() {
       return hasRequiredFields(['uid', 'email', 'role', 'fullName', 'createdAt']) &&
              isString('uid') &&
@@ -160,6 +171,11 @@ service cloud.firestore {
       allow delete: if true; // Should be restricted to teachers
     }
 
+    match /examVersions/{examVersionId} {
+      allow read, write: if true;
+      allow delete: if true;
+    }
+
     match /assignments/{assignmentId} {
       allow read: if true;
       allow create: if isValidAssignment();
@@ -172,6 +188,13 @@ service cloud.firestore {
       allow create: if isValidAttempt();
       allow update: if isValidAttempt();
       allow delete: if true; // Should be restricted to teachers
+    }
+
+    match /attemptDrafts/{draftId} {
+      allow read: if true;
+      allow create: if isValidAttemptDraft();
+      allow update: if isValidAttemptDraft();
+      allow delete: if true;
     }
   }
 }

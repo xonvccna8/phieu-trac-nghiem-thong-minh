@@ -4,8 +4,11 @@ import { cn } from '@/lib/utils';
 import { CheckCircle2, XCircle, AlertCircle, ChevronRight, Lightbulb, Clock, MessageSquare, Loader2 } from 'lucide-react';
 import { store } from '@/lib/store';
 import { useAuth } from '@/lib/AuthContext';
-import { Exam, Assignment, Attempt, Student, Class } from '@/types';
+import { Exam, Assignment, Attempt, Student, Class, ExamVersion } from '@/types';
 import { RichTextDisplay } from '@/components/RichTextDisplay';
+import { calculateLegacyExamScore } from '@/lib/examScoring';
+import { getExamAvailability, getExamDurationInSeconds } from '@/lib/examValidation';
+import { mapVersionAnswersToOriginal, pickDeterministicExamVersion } from '@/lib/examVersioning';
 import 'react-quill-new/dist/quill.snow.css';
 
 interface ExamPaperProps {
@@ -17,9 +20,13 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   const { id: assignmentId } = useParams<{ id: string }>();
   const { userProfile } = useAuth();
   
+  const [isPageLoading, setIsPageLoading] = useState(true);
   const [loggedInStudent, setLoggedInStudent] = useState<Student | null>(null);
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [exam, setExam] = useState<Exam | null>(null);
+  const [sourceExam, setSourceExam] = useState<Exam | null>(null);
+  const [examVersion, setExamVersion] = useState<ExamVersion | null>(null);
+  const [availableVersionsState, setAvailableVersionsState] = useState<ExamVersion[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
 
   const [answersPart1, setAnswersPart1] = useState<Record<number, string>>({});
@@ -30,6 +37,14 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   const [timeLeft, setTimeLeft] = useState<number>(50 * 60); // 50 minutes
   const [isTimeUp, setIsTimeUp] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
+  const [startedAt, setStartedAt] = useState<number>(Date.now());
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+
+  // Anti-cheat states
+  const [isFullscreenStarted, setIsFullscreenStarted] = useState(mode !== 'EXAM');
+  const [cheatWarning, setCheatWarning] = useState<string | null>(null);
 
   // Practice mode states
   const [currentQuestion, setCurrentQuestion] = useState<{part: number, num: number, sub?: string} | null>(
@@ -47,6 +62,12 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   const [activeAITutor, setActiveAITutor] = useState<{part: number, num: number, sub?: string} | null>(null);
   const [aiExplanation, setAiExplanation] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const examVersionDigits = (examVersion?.code || '')
+    .toString()
+    .padStart(4, ' ')
+    .slice(-4)
+    .split('')
+    .map((ch) => (ch === ' ' ? '' : ch));
 
   // Helper to strip HTML tags for AI prompt
   const stripHtml = (html: string) => {
@@ -59,118 +80,299 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadData = async () => {
-      if (userProfile && userProfile.role === 'STUDENT') {
-        const students = await store.getStudents();
-        const student = students.find(s => s.id === userProfile.uid);
-        if (student) {
-          setLoggedInStudent(student);
+      setIsPageLoading(true);
+
+      try {
+        let resolvedStudent: Student | null = null;
+
+        if (userProfile && userProfile.role === 'STUDENT') {
+          const students = await store.getStudents();
+          const student = students.find(s => s.id === userProfile.uid);
+          if (student) {
+            if (!isMounted) return;
+            setLoggedInStudent(student);
+            resolvedStudent = student;
+          } else {
+            if (!isMounted) return;
+            setAlertDialog({
+              isOpen: true,
+              message: 'Không tìm thấy thông tin học sinh!',
+              onClose: () => navigate('/student')
+            });
+            return;
+          }
         } else {
+          if (!isMounted) return;
           setAlertDialog({
             isOpen: true,
-            message: 'Không tìm thấy thông tin học sinh!',
+            message: 'Vui lòng đăng nhập để làm bài!',
+            onClose: () => navigate('/auth')
+          });
+          return;
+        }
+
+        if (!assignmentId) {
+          if (!isMounted) return;
+          setAlertDialog({
+            isOpen: true,
+            message: 'Không tìm thấy mã bài luyện/đề thi.',
             onClose: () => navigate('/student')
           });
           return;
         }
-      } else {
-        setAlertDialog({
-          isOpen: true,
-          message: 'Vui lòng đăng nhập để làm bài!',
-          onClose: () => navigate('/auth')
-        });
-        return;
-      }
 
-      if (assignmentId) {
-        const a = await store.getAssignmentById(assignmentId);
-        if (a) {
-          setAssignment(a);
-          const e = await store.getExamById(a.examId);
-          if (e) setExam(e);
+        let resolvedAssignment = await store.getAssignmentById(assignmentId);
+        let resolvedExam: Exam | undefined;
 
-          // Check max attempts
-          if (mode === 'EXAM' && a.mode === 'EXAM' && userProfile?.uid) {
-            const studentAttempts = await store.getAttempts(userProfile.uid, a.id);
-            if (studentAttempts.length >= (a.maxAttempts || 1)) {
-              setAlertDialog({
-                isOpen: true,
-                message: `Em đã hết số lần làm bài cho phép (${a.maxAttempts || 1} lần).`,
-                onClose: () => navigate('/student')
-              });
-              return;
-            }
-          }
-
-          if (mode === 'REVIEW' && userProfile?.uid) {
-            const studentAttempts = await store.getAttempts(userProfile.uid, a.id);
-            if (studentAttempts.length > 0) {
-              const best = studentAttempts.reduce((prev, current) => (prev.score > current.score) ? prev : current);
-              setBestAttempt(best);
-              setAnswersPart1(best.answersPart1 || {});
-              setAnswersPart2(best.answersPart2 || {});
-              setAnswersPart3(best.answersPart3 || {});
-            } else {
-              setAlertDialog({
-                isOpen: true,
-                message: 'Không tìm thấy bài làm nào để xem lại.',
-                onClose: () => navigate('/student')
-              });
-              return;
-            }
+        if (!resolvedAssignment && mode === 'PRACTICE') {
+          resolvedExam = await store.getExamById(assignmentId);
+          if (resolvedExam && resolvedStudent) {
+            resolvedAssignment = {
+              id: `practice-${resolvedExam.id}`,
+              examId: resolvedExam.id,
+              classId: resolvedStudent.classId,
+              teacherId: resolvedExam.teacherId,
+              mode: 'PRACTICE',
+              status: 'IN_PROGRESS',
+              dueDate: '2099-12-31T23:59',
+              maxAttempts: 999,
+              titleSnapshot: resolvedExam.title,
+              subjectSnapshot: resolvedExam.subject,
+              durationMinutesSnapshot: resolvedExam.onlineSettings?.durationMinutes,
+              createdAt: resolvedExam.createdAt,
+            };
           }
         }
+
+        if (!resolvedAssignment) {
+          if (!isMounted) return;
+          setAlertDialog({
+            isOpen: true,
+            message: 'Không tìm thấy bài được giao để luyện thi.',
+            onClose: () => navigate('/student')
+          });
+          return;
+        }
+
+        if (!isMounted) return;
+        setAssignment(resolvedAssignment);
+
+        resolvedExam = resolvedExam || await store.getExamById(resolvedAssignment.examId);
+        if (!resolvedExam) {
+          setAlertDialog({
+            isOpen: true,
+            message: 'Không tìm thấy đề thi hoặc đề đã bị xóa/khóa.',
+            onClose: () => navigate('/student')
+          });
+          return;
+        }
+
+        setSourceExam(resolvedExam);
+        if (resolvedExam.templateType === 'LEGACY_PHIU_TRA_LOI' && mode !== 'EXAM' && mode !== 'REVIEW') {
+          setIsFullscreenStarted(false);
+        }
+
+        const availability = getExamAvailability(resolvedExam, resolvedAssignment);
+        if (mode !== 'REVIEW' && !availability.allowed) {
+          setAlertDialog({
+            isOpen: true,
+            message: availability.reason,
+            onClose: () => navigate('/student')
+          });
+          return;
+        }
+
+        if (mode !== 'REVIEW') {
+          const duration = getExamDurationInSeconds(resolvedExam);
+          setTimeLeft(duration);
+        }
+
+        // Load tất cả các mã đề có sẵn (cho cả EXAM lẫn PRACTICE với phiếu in giấy)
+        const availableVersions = await store.getExamVersions(resolvedAssignment.examId);
+        setAvailableVersionsState(availableVersions);
+        let selectedVersion: ExamVersion | null = null;
+
+        if (mode === 'EXAM' && resolvedAssignment.mode === 'EXAM' && userProfile?.uid) {
+          const studentAttempts = await store.getAttempts(userProfile.uid, resolvedAssignment.id);
+          if (studentAttempts.length >= (resolvedAssignment.maxAttempts || 1)) {
+            setAlertDialog({
+              isOpen: true,
+              message: `Em đã hết số lần làm bài cho phép (${resolvedAssignment.maxAttempts || 1} lần).`,
+              onClose: () => navigate('/student')
+            });
+            return;
+          }
+        }
+
+        if (mode === 'EXAM' && userProfile?.uid && resolvedStudent) {
+          const existingDraft = await store.getAttemptDraft(resolvedAssignment.id, userProfile.uid);
+          if (existingDraft?.examVersionId) {
+            selectedVersion = availableVersions.find((version) => version.id === existingDraft.examVersionId) || null;
+          }
+
+          // Cập nhật: CHỈ gán mã đề random nếu là thi ONLINE. Nếu là phiếu in giấy (LEGACY), học sinh PHẢI tự chọn mã đề thực tế của mình.
+          if (!selectedVersion && availableVersions.length > 0 && resolvedExam.templateType !== 'LEGACY_PHIU_TRA_LOI') {
+            selectedVersion = pickDeterministicExamVersion(availableVersions, userProfile.uid, resolvedAssignment.id);
+          }
+
+          // Khôi phục nháp (của bài cũ)
+          if (existingDraft) {
+            setAnswersPart1(existingDraft.answersPart1 || {});
+            setAnswersPart2(existingDraft.answersPart2 || {});
+            setAnswersPart3(existingDraft.answersPart3 || {});
+            setStartedAt(existingDraft.startedAt || Date.now());
+            setTabSwitchCount(existingDraft.tabSwitchCount || 0);
+            const fullDuration = getExamDurationInSeconds(resolvedExam);
+            const elapsedSeconds = Math.floor((Date.now() - (existingDraft.startedAt || Date.now())) / 1000);
+            setTimeLeft(Math.max(0, fullDuration - elapsedSeconds));
+            setDraftRestored(true);
+            setLastSavedAt(existingDraft.updatedAt || Date.now());
+          } else {
+            const now = Date.now();
+            setStartedAt(now);
+            setDraftRestored(true);
+          }
+        }
+
+        // PRACTICE mode: cũng tương tự, CHỈ gán random nếu là ONLINE. LEGACY thì học sinh tự chọn.
+        if (mode === 'PRACTICE' && userProfile?.uid && availableVersions.length > 0 && resolvedExam.templateType !== 'LEGACY_PHIU_TRA_LOI') {
+          selectedVersion = pickDeterministicExamVersion(availableVersions, userProfile.uid, resolvedAssignment.id);
+        }
+
+        if (mode === 'REVIEW' && userProfile?.uid) {
+          const studentAttempts = await store.getAttempts(userProfile.uid, resolvedAssignment.id);
+          if (studentAttempts.length > 0) {
+            const best = studentAttempts.reduce((prev, current) => (prev.score > current.score) ? prev : current);
+            setBestAttempt(best);
+            setAnswersPart1(best.answersPart1 || {});
+            setAnswersPart2(best.answersPart2 || {});
+            setAnswersPart3(best.answersPart3 || {});
+            if (best.examVersionId) {
+              selectedVersion = availableVersions.find((version) => version.id === best.examVersionId) || null;
+            }
+          } else {
+            setAlertDialog({
+              isOpen: true,
+              message: 'Không tìm thấy bài làm nào để xem lại.',
+              onClose: () => navigate('/student')
+            });
+            return;
+          }
+        }
+
+        setExamVersion(selectedVersion);
+        setExam(selectedVersion?.derivedExam || resolvedExam);
+
+        const loadedClasses = await store.getClasses();
+        if (!isMounted) return;
+        setClasses(loadedClasses);
+      } catch (err: any) {
+        console.error("Error loading exam data:", err);
+        if (isMounted) {
+          setAlertDialog({
+            isOpen: true,
+            message: `Có lỗi kỹ thuật khi tải đề thi: ${err?.message || 'Vui lòng thử lại sau.'}`,
+            onClose: () => navigate('/student')
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setIsPageLoading(false);
+        }
       }
-      const loadedClasses = await store.getClasses();
-      setClasses(loadedClasses);
     };
+
     loadData();
-  }, [assignmentId, navigate, userProfile]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [assignmentId, navigate, userProfile, mode]);
+
+  const isEnforcedExamMode = mode === 'EXAM' || (sourceExam?.templateType === 'LEGACY_PHIU_TRA_LOI' && mode !== 'REVIEW');
+
+  useEffect(() => {
+    if (!isEnforcedExamMode || !isFullscreenStarted) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount(prev => {
+          const next = prev + 1;
+          setCheatWarning(`CẢNH BÁO: Em vừa rời khỏi giao diện làm bài (chuyển tab hoặc ẩn trình duyệt)! Số lần vi phạm: ${next}`);
+          return next;
+        });
+      }
+    };
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setTabSwitchCount(prev => {
+          const next = prev + 1;
+          setCheatWarning(`CẢNH BÁO: Em không được phép thoát chế độ toàn màn hình trong khi thi! Số lần vi phạm: ${next}`);
+          return next;
+        });
+        setIsFullscreenStarted(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isEnforcedExamMode, isFullscreenStarted]);
 
   const calculateScore = () => {
-    if (!exam) return { p1Score: 0, p2Score: 0, p3Score: 0, total: 0 };
-    
-    let p1Score = 0;
-    let p2Score = 0;
-    let p3Score = 0;
-
-    // Part 1: 18 questions, 0.25 each
-    for (let i = 1; i <= 18; i++) {
-      if (answersPart1[i] === exam.part1[i]?.answer) {
-        p1Score += 0.25;
-      }
+    // Nếu là bài in giấy, bắt buộc học sinh phải điền MÃ ĐỀ trước khi chấm.
+    // Nếu học sinh chưa chọn examVersion thì đề trống, không được chấm.
+    const isLegacySheet = sourceExam?.templateType === 'LEGACY_PHIU_TRA_LOI';
+    if (isLegacySheet && !examVersion) {
+      return { p1Score: 0, p2Score: 0, p3Score: 0, total: 0, unansweredCount: 28 };
     }
 
-    // Part 2: 4 questions, 4 subs
-    for (let i = 1; i <= 4; i++) {
-      let correctCount = 0;
-      ['a', 'b', 'c', 'd'].forEach(sub => {
-        if (answersPart2[i]?.[sub] !== undefined && answersPart2[i]?.[sub] === exam.part2[i]?.answers?.[sub]) {
-          correctCount++;
-        }
+    if (isLegacySheet && examVersion) {
+      // Học sinh làm theo số thứ tự của version → so sánh trực tiếp với đáp án của version
+      const score = calculateLegacyExamScore(exam, {
+        answersPart1,
+        answersPart2,
+        answersPart3,
       });
-      if (correctCount === 1) p2Score += 0.1;
-      else if (correctCount === 2) p2Score += 0.25;
-      else if (correctCount === 3) p2Score += 0.5;
-      else if (correctCount === 4) p2Score += 1.0;
+      return score;
     }
 
-    // Part 3: 6 questions, 0.25 each
-    for (let i = 1; i <= 6; i++) {
-      const studentAns = (answersPart3[i] || '').trim().toLowerCase();
-      const correctAns = (exam.part3[i]?.answer || '').trim().toLowerCase();
-      if (studentAns && studentAns === correctAns) {
-        p3Score += 0.25;
-      }
-    }
+    // Đề online (ONLINE_EXAM) với version: map đáp án về câu gốc rồi chấm theo đề gốc
+    const normalizedAnswers = examVersion
+      ? mapVersionAnswersToOriginal(examVersion, {
+          answersPart1,
+          answersPart2,
+          answersPart3,
+        })
+      : {
+          answersPart1,
+          answersPart2,
+          answersPart3,
+        };
 
-    return { p1Score, p2Score, p3Score, total: p1Score + p2Score + p3Score };
+    const score = calculateLegacyExamScore(sourceExam || exam, normalizedAnswers);
+
+    return score;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (options?: { autoSubmitted?: boolean }) => {
     if (!assignment || !loggedInStudent) return;
     
+    if (sourceExam?.templateType === 'LEGACY_PHIU_TRA_LOI' && availableVersionsState.length > 0 && !examVersion && mode !== 'REVIEW') {
+      setAlertDialog({ isOpen: true, message: 'Vui lòng chọn Mã đề thi trước khi nộp bài!', onClose: () => {} });
+      return;
+    }
+
     const scores = calculateScore();
+    const submittedAt = Date.now();
     const attempt: Attempt = {
       id: Date.now().toString(),
       assignmentId: assignment.id,
@@ -184,13 +386,23 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
       part1Score: scores.p1Score,
       part2Score: scores.p2Score,
       part3Score: scores.p3Score,
-      submittedAt: Date.now()
+      unansweredCount: scores.unansweredCount,
+      startedAt,
+      durationSeconds: Math.max(0, Math.floor((submittedAt - startedAt) / 1000)),
+      autoSubmitted: options?.autoSubmitted || false,
+      tabSwitchCount,
+      examVersionId: examVersion?.id,
+      examVersionCode: examVersion?.code,
+      submittedAt
     };
     
     await store.saveAttempt(attempt);
+    await store.deleteAttemptDraft(assignment.id, loggedInStudent.id);
     setAlertDialog({
       isOpen: true,
-      message: `Nộp bài thành công! Điểm của em là: ${scores.total.toFixed(2)}/10`,
+      message: assignment.showScoreImmediately === false || exam?.onlineSettings?.showScoreImmediately === false
+        ? 'Nộp bài thành công! Giáo viên chưa bật chế độ hiển thị điểm ngay. Em hãy chờ công bố kết quả.'
+        : `Nộp bài thành công! Điểm của em là: ${scores.total.toFixed(2)}/10`,
       onClose: () => navigate('/student')
     });
   };
@@ -201,7 +413,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   });
 
   useEffect(() => {
-    if (mode !== 'EXAM' || !timerStarted) return;
+    if (!isEnforcedExamMode || !timerStarted) return;
     
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -214,14 +426,63 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [mode, timerStarted]);
+  }, [isEnforcedExamMode, timerStarted]);
 
-  // Bắt đầu đếm giờ ngay khi load xong dữ liệu
+  // Bắt đầu đếm giờ khi dữ liệu và trạng thái draft đã sẵn sàng
   useEffect(() => {
-    if (exam && assignment && mode !== 'REVIEW') {
+    if (exam && assignment && mode !== 'REVIEW' && draftRestored) {
       setTimerStarted(true);
     }
-  }, [exam, assignment, mode]);
+  }, [exam, assignment, mode, draftRestored]);
+
+  useEffect(() => {
+    if (!isEnforcedExamMode || !assignment || !loggedInStudent || !draftRestored || !timerStarted) return;
+
+    const saveDraft = async () => {
+      if (sourceExam?.templateType === 'LEGACY_PHIU_TRA_LOI' && availableVersionsState.length > 0 && !examVersion && (mode as any) !== 'REVIEW') {
+        return; // Không lưu nháp nếu chưa chọn mã đề (với phiếu giấy)
+      }
+
+      await store.saveAttemptDraft({
+        id: `${assignment.id}_${loggedInStudent.id}`,
+        assignmentId: assignment.id,
+        studentId: loggedInStudent.id,
+        classId: assignment.classId,
+        teacherId: assignment.teacherId,
+        answersPart1,
+        answersPart2,
+        answersPart3,
+        startedAt,
+        updatedAt: Date.now(),
+        tabSwitchCount,
+        examVersionId: examVersion?.id,
+        examVersionCode: examVersion?.code,
+      });
+      setLastSavedAt(Date.now());
+    };
+
+    // Save immediately once the student enters the exam to mark "đã vào làm".
+    saveDraft();
+
+    const timer = setInterval(() => {
+      saveDraft();
+    }, 15000);
+
+    return () => clearInterval(timer);
+  }, [isEnforcedExamMode, assignment, loggedInStudent, answersPart1, answersPart2, answersPart3, draftRestored, timerStarted, examVersion, tabSwitchCount]);
+
+  useEffect(() => {
+    if (!isEnforcedExamMode || !timerStarted) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount(prev => prev + 1);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [mode, timerStarted]);
 
   useEffect(() => {
     if (timeLeft === 0 && !isTimeUp && assignment && mode === 'EXAM') {
@@ -230,14 +491,57 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
         isOpen: true,
         message: 'Đã hết thời gian làm bài! Hệ thống sẽ tự động nộp bài.',
         onClose: () => {
-          handleSubmitRef.current();
+          handleSubmitRef.current({ autoSubmitted: true });
         }
       });
     }
-  }, [timeLeft, isTimeUp, assignment]);
+  }, [timeLeft, isTimeUp, assignment, mode]);
+
+  if (isPageLoading) {
+    return <div className="p-8 text-center">Đang tải dữ liệu đề thi...</div>;
+  }
+
+  const alertDialogElement = alertDialog.isOpen && (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 text-left">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 text-center">
+        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-gray-800 mb-2">Thông báo</h3>
+        <p className="text-gray-600 mb-6">{alertDialog.message}</p>
+        <button 
+          onClick={() => {
+            setAlertDialog({ ...alertDialog, isOpen: false });
+            alertDialog.onClose();
+          }}
+          className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700"
+        >
+          Đóng
+        </button>
+      </div>
+    </div>
+  );
 
   if (!assignment || !exam || !loggedInStudent) {
-    return <div className="p-8 text-center">Đang tải dữ liệu đề thi...</div>;
+    return (
+      <>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 p-8 text-center">
+          <div className="text-lg font-semibold text-slate-700">Không thể mở phiếu luyện lúc này</div>
+          <div className="text-sm text-slate-500 max-w-xl">
+            Dữ liệu bài giao hoặc đề thi không còn hợp lệ, đã bị xóa, hoặc tài khoản học sinh chưa được liên kết đúng.
+            Vui lòng quay lại trang học sinh và mở lại bài.
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/student')}
+            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            Quay lại trang học sinh
+          </button>
+        </div>
+        {alertDialogElement}
+      </>
+    );
   }
 
   const handlePart1Select = (qNum: number, answer: string) => {
@@ -309,6 +613,19 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const renderQuestionContent = (content: string | undefined, className: string) => {
+    if (!content) return null;
+    const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(content);
+    if (looksLikeHtml) {
+      return (
+        <div className={className}>
+          <RichTextDisplay html={content} />
+        </div>
+      );
+    }
+    return <div className={cn(className, "whitespace-pre-line")}>{content}</div>;
   };
 
   const renderBubble = (label: string, isSelected: boolean, onClick: () => void, disabled: boolean = false, isCorrectReview: boolean = false, isWrongReview: boolean = false) => (
@@ -589,6 +906,46 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
     );
   };
 
+  if (isEnforcedExamMode && !isFullscreenStarted && !isPageLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 selection:bg-rose-500/30 text-slate-900">
+        <div className="bg-white rounded-[2rem] p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-rose-500 to-orange-500"></div>
+          <AlertCircle className="w-20 h-20 text-rose-500 mx-auto mb-6 bg-rose-50 p-4 rounded-full" />
+          <h2 className="text-3xl font-black tracking-tight text-slate-900 mb-3">VÀO PHÒNG THI</h2>
+          <p className="text-slate-600 mb-6 font-medium leading-relaxed">
+            Bài thi yêu cầu chế độ Toàn Màn Hình. 
+            Nếu em cố tình thoát màn hình hoặc đóng, chuyển tab, hệ thống sẽ tự động ghi nhận vi phạm!
+          </p>
+          {tabSwitchCount > 0 && (
+            <div className="text-sm font-bold text-rose-600 mb-6 bg-rose-50 p-3 rounded-xl border border-rose-200 inline-flex mx-auto items-center gap-2">
+              <XCircle className="w-4 h-4" />
+              Số lần vi phạm gian lận: {tabSwitchCount}
+            </div>
+          )}
+          <button
+            onClick={async () => {
+              try {
+                if (document.documentElement.requestFullscreen) {
+                  await document.documentElement.requestFullscreen();
+                }
+                setIsFullscreenStarted(true);
+                setCheatWarning(null);
+              } catch (err) {
+                console.error(err);
+                alert('Không thể mở toàn màn hình. Trình duyệt hoặc thiết bị của bạn có thể không hỗ trợ.');
+                setIsFullscreenStarted(true); // fall back fallback incase iOS safari
+              }
+            }}
+            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 active:scale-95"
+          >
+            ĐÃ HIỂU & BẮT ĐẦU LÀM
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div translate="no" className="notranslate min-h-screen bg-gray-100 md:py-8 md:px-4 font-sans">
       <div className="max-w-4xl mx-auto bg-white shadow-xl md:rounded-2xl overflow-hidden">
@@ -634,34 +991,65 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
               </div>
             </div>
             {/* Mã Đề Grid */}
-            <div className="border-2 border-red-600 rounded-xl p-2 sm:p-3 bg-white shadow-sm flex-1 max-w-[120px] sm:max-w-none">
-              <div className="text-center font-bold text-red-600 text-[10px] sm:text-sm mb-2 border-b border-red-200 pb-1">MÃ ĐỀ THI</div>
-              <div className="flex justify-center gap-0.5 sm:gap-1">
-                {['1', '0', '1', '2'].map((num, i) => (
-                  <div key={i} className="w-5 sm:w-6 h-7 sm:h-8 border border-gray-300 flex items-center justify-center font-mono font-bold text-sm sm:text-lg bg-gray-50 rounded-sm">
-                    {num}
-                  </div>
-                ))}
-              </div>
+            <div className="border-2 border-red-600 rounded-xl p-2 sm:p-3 bg-white shadow-sm flex-1 max-w-[150px] sm:max-w-[200px]">
+              <div className="text-center font-bold text-red-600 text-[10px] sm:text-sm mb-2 border-b border-red-200 pb-1">SẼ ĐƯỢC CHẤM MÃ ĐỀ:</div>
+              {sourceExam?.templateType === 'LEGACY_PHIU_TRA_LOI' && availableVersionsState.length > 0 && mode !== 'REVIEW' ? (
+                <select
+                  value={examVersion?.id || ''}
+                  onChange={(e) => {
+                    const v = availableVersionsState.find(v => v.id === e.target.value);
+                    setExamVersion(v || null);
+                    setExam(v?.derivedExam || sourceExam);
+                  }}
+                  className="w-full border-2 border-red-400 bg-red-50 text-red-700 font-bold font-mono text-center text-sm md:text-lg rounded-lg py-1.5 md:py-2 outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="">- Chọn Mã -</option>
+                  {availableVersionsState.map(v => (
+                    <option key={v.id} value={v.id}>{v.code}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className="flex justify-center gap-0.5 sm:gap-1">
+                  {examVersionDigits.map((num, i) => (
+                    <div key={i} className="w-5 sm:w-6 h-7 sm:h-8 border border-gray-300 flex items-center justify-center font-mono font-bold text-sm sm:text-lg bg-gray-50 rounded-sm">
+                      {num}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Mode Indicator - Sticky for mobile app feel */}
-        <div className="sticky top-0 z-40 bg-blue-600 text-white py-2.5 px-4 md:px-8 flex justify-between items-center shadow-md">
-          <div className="font-bold flex items-center gap-2 text-xs md:text-base">
-            <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shrink-0"></span>
-            <span className="truncate max-w-[150px] sm:max-w-none">
-              {mode === 'EXAM' ? 'THI ONLINE' : mode === 'PRACTICE' ? 'ÔN LUYỆN' : 'XEM LẠI BÀI'}
-            </span>
+        <div className="sticky top-0 z-40 bg-blue-600 text-white py-2.5 px-4 md:px-8 flex justify-between items-center shadow-md gap-4">
+          <div className="min-w-0">
+            <div className="font-bold flex items-center gap-2 text-xs md:text-base">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shrink-0"></span>
+              <span className="truncate max-w-[150px] sm:max-w-none">
+                {mode === 'EXAM' ? 'THI ONLINE' : mode === 'PRACTICE' ? 'ÔN LUYỆN' : 'XEM LẠI BÀI'}
+              </span>
+            </div>
+            {isEnforcedExamMode && (
+              <div className="mt-1 text-[11px] md:text-xs text-blue-100">
+                {lastSavedAt ? `Đã lưu nháp lúc ${new Date(lastSavedAt).toLocaleTimeString('vi-VN')}` : 'Đang chuẩn bị lưu nháp tự động...'}
+              </div>
+            )}
           </div>
-          {mode === 'EXAM' && (
-            <div className={cn(
-              "font-mono font-bold text-sm md:text-xl px-3 py-1 rounded-lg flex items-center gap-1.5 md:gap-2 shadow-sm",
-              timeLeft <= 300 ? "bg-red-600 animate-pulse" : "bg-blue-800"
-            )}>
-              <Clock className="w-4 h-4 md:w-5 md:h-5" />
-              {formatTime(timeLeft)}
+          {isEnforcedExamMode && (
+            <div className="flex items-center gap-2">
+              {examVersion?.code && (
+                <div className="font-bold text-xs md:text-sm px-3 py-1 rounded-lg bg-emerald-700 text-white shadow-sm">
+                  Mã đề {examVersion.code}
+                </div>
+              )}
+              <div className={cn(
+                "font-mono font-bold text-sm md:text-xl px-3 py-1 rounded-lg flex items-center gap-1.5 md:gap-2 shadow-sm",
+                timeLeft <= 300 ? "bg-red-600 animate-pulse" : "bg-blue-800"
+              )}>
+                <Clock className="w-4 h-4 md:w-5 md:h-5" />
+                {formatTime(timeLeft)}
+              </div>
             </div>
           )}
         </div>
@@ -708,48 +1096,42 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
                 return (
                   <React.Fragment key={qNum}>
                     <div className={cn(
-                      "flex items-center gap-4 p-2 rounded-lg transition-colors",
+                      "p-4 rounded-lg transition-colors border border-gray-100",
                       isCurrent && "bg-blue-50 ring-2 ring-blue-200"
                     )}>
-                      <span className="font-bold text-lg w-8 text-right text-gray-700">{qNum}.</span>
-                      <div className="flex gap-2">
-                      {['A', 'B', 'C', 'D'].map(opt => {
-                        let isCorrectReview = false;
-                        let isWrongReview = false;
-                        if (mode === 'REVIEW') {
-                          const isStudentChoice = answersPart1[qNum] === opt;
-                          const isActualCorrect = exam.part1[qNum]?.answer === opt;
-                          
-                          if (reviewTab === 'STUDENT_WORK') {
-                            if (isStudentChoice) {
-                              isCorrectReview = isActualCorrect;
-                              isWrongReview = !isActualCorrect;
-                            }
-                          } else if (reviewTab === 'ANSWER_KEY') {
-                            if (isActualCorrect) {
-                              isCorrectReview = true;
-                            }
-                          }
-                        }
-
-                        const handleClick = () => {
-                          if (mode === 'REVIEW' && reviewTab === 'STUDENT_WORK' && isWrongReview) {
-                            handleAiHelp(1, qNum);
-                          } else {
-                            handlePart1Select(qNum, opt);
-                          }
-                        };
-
-                        return renderBubble(
-                          opt, 
-                          answersPart1[qNum] === opt, 
-                          handleClick,
-                          isDisabled || (mode === 'REVIEW' && !(reviewTab === 'STUDENT_WORK' && isWrongReview)),
-                          isCorrectReview,
-                          isWrongReview
-                        );
-                      })}
-                    </div>
+                      <div className="flex gap-3">
+                        <span className="font-bold text-lg w-8 text-right text-gray-700 shrink-0">{qNum}.</span>
+                        <div className="flex-1 space-y-3">
+                          {renderQuestionContent(exam.part1[qNum]?.question, "text-gray-800 text-sm md:text-base leading-relaxed")}
+                          <div className="space-y-2">
+                            {['A', 'B', 'C', 'D'].map(opt => (
+                              <div key={`choice-${qNum}-${opt}`} className="flex items-start gap-3">
+                                {renderBubble(
+                                  opt,
+                                  answersPart1[qNum] === opt,
+                                  () => {
+                                    const isStudentChoice = answersPart1[qNum] === opt;
+                                    const isActualCorrect = exam.part1[qNum]?.answer === opt;
+                                    const isWrongReview = mode === 'REVIEW' && reviewTab === 'STUDENT_WORK' && isStudentChoice && !isActualCorrect;
+                                    if (isWrongReview) {
+                                      handleAiHelp(1, qNum);
+                                    } else {
+                                      handlePart1Select(qNum, opt);
+                                    }
+                                  },
+                                  isDisabled,
+                                  mode === 'REVIEW' && ((reviewTab === 'STUDENT_WORK' && answersPart1[qNum] === opt && exam.part1[qNum]?.answer === opt) || (reviewTab === 'ANSWER_KEY' && exam.part1[qNum]?.answer === opt)),
+                                  mode === 'REVIEW' && reviewTab === 'STUDENT_WORK' && answersPart1[qNum] === opt && exam.part1[qNum]?.answer !== opt
+                                )}
+                                {renderQuestionContent(
+                                  exam.part1[qNum]?.choices?.[opt] || `Đáp án ${opt}`,
+                                  "flex-1 text-sm text-gray-700 pt-1 leading-relaxed"
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                   </div>
                   {mode === 'REVIEW' && reviewTab === 'ANSWER_KEY' && exam.part1[qNum]?.explanation && (
                     <div className="mt-2 text-sm text-gray-700 bg-blue-50 p-3 rounded-lg border border-blue-100 col-span-full">
@@ -784,6 +1166,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
                     isCurrent && "bg-blue-50 border-blue-300 shadow-sm"
                   )}>
                     <div className="font-bold text-lg mb-4 text-gray-800 border-b border-gray-200 pb-2">Câu {qNum}</div>
+                    {renderQuestionContent(exam.part2[qNum]?.question, "mb-4 text-sm md:text-base text-gray-800 leading-relaxed")}
                     <div className="space-y-3">
                       {['a', 'b', 'c', 'd'].map(sub => {
                         let isTrueCorrectReview = false;
@@ -815,7 +1198,13 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
                         return (
                           <div key={sub} className="flex flex-col gap-2">
                             <div className="flex items-center justify-between">
-                              <span translate="no" className="notranslate font-bold text-gray-600 w-8 shrink-0">{sub})</span>
+                              <div className="flex items-start gap-3 flex-1 pr-4">
+                                <span translate="no" className="notranslate font-bold text-gray-600 w-8 shrink-0">{sub})</span>
+                                {renderQuestionContent(
+                                  exam.part2[qNum]?.statements?.[sub] || `Phát biểu ${sub})`,
+                                  "text-sm text-gray-700 pt-1 leading-relaxed"
+                                )}
+                              </div>
                               <div className="flex gap-4">
                                 <button
                                   onClick={() => {
@@ -914,6 +1303,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
                       isCurrent && "bg-blue-50 ring-2 ring-blue-200"
                     )}>
                       <label className="font-bold text-gray-700">Câu {qNum}:</label>
+                      {renderQuestionContent(exam.part3[qNum]?.question, "text-sm md:text-base text-gray-800 leading-relaxed")}
                       <div className="flex gap-2 items-stretch">
                         <input 
                           type="text" 
@@ -968,15 +1358,15 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
         <div className="bg-gray-50 p-4 md:p-8 border-t-2 border-gray-200 flex justify-center md:justify-end pb-safe">
           {mode === 'EXAM' && (
             <button 
-              onClick={handleSubmit}
+              onClick={() => handleSubmit()}
               className="w-full md:w-auto bg-red-600 hover:bg-red-700 text-white px-8 md:px-12 py-3.5 md:py-4 rounded-xl font-black text-lg md:text-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1"
             >
-              NỘP BÀI THI
+              NỘP BÀI THI ({calculateScore().unansweredCount} câu chưa làm)
             </button>
           )}
           {mode === 'PRACTICE' && (
             <button 
-              onClick={handleSubmit}
+              onClick={() => handleSubmit()}
               className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-3 rounded-xl font-bold shadow-md text-lg"
             >
               Kết thúc phiên ôn luyện
@@ -988,27 +1378,39 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
       {renderPracticePopup()}
       {renderAiPopup()}
 
-      {/* Alert Modal */}
-      {alertDialog.isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 text-center">
-            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="w-8 h-8" />
+      {/* Cheat Warning Modal */}
+      {cheatWarning && (
+        <div className="fixed inset-0 bg-rose-950/90 backdrop-blur-md flex items-center justify-center z-[150] p-4 text-slate-900">
+          <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95">
+            <div className="mx-auto w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mb-6">
+              <XCircle className="w-12 h-12 text-rose-600 animate-pulse" />
             </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Thông báo</h3>
-            <p className="text-gray-600 mb-6">{alertDialog.message}</p>
-            <button 
-              onClick={() => {
-                setAlertDialog({ ...alertDialog, isOpen: false });
-                alertDialog.onClose();
+            <h3 className="text-3xl font-black text-rose-600 mb-4 uppercase tracking-tight">VI PHẠM!</h3>
+            <p className="text-slate-700 font-bold mb-8 text-lg border-2 border-rose-200 bg-rose-50 rounded-xl p-4">{cheatWarning}</p>
+            <button
+              onClick={async () => {
+                if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                  try {
+                    await document.documentElement.requestFullscreen();
+                    setIsFullscreenStarted(true);
+                  } catch(e) {
+                    setIsFullscreenStarted(true);
+                  }
+                } else {
+                  setIsFullscreenStarted(true);
+                }
+                setCheatWarning(null);
               }}
-              className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700"
+              className="w-full py-4 bg-slate-900 text-white font-bold text-lg rounded-2xl hover:bg-slate-800 transition-colors shadow-lg active:scale-95"
             >
-              Đóng
+              TÔI ĐÃ HIỂU
             </button>
           </div>
         </div>
       )}
+
+      {/* Alert Modal */}
+      {alertDialogElement}
     </div>
   );
 }
