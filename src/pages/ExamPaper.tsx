@@ -294,9 +294,10 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   }, [assignmentId, navigate, userProfile, mode]);
 
   const isEnforcedExamMode = mode === 'EXAM' || (sourceExam?.templateType === 'LEGACY_PHIU_TRA_LOI' && mode !== 'REVIEW');
+  const isAntiCheatEnabled = isEnforcedExamMode && sourceExam?.templateType !== 'LEGACY_PHIU_TRA_LOI';
 
   useEffect(() => {
-    if (!isEnforcedExamMode || !isFullscreenStarted) return;
+    if (!isAntiCheatEnabled || !isFullscreenStarted) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -326,7 +327,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [isEnforcedExamMode, isFullscreenStarted]);
+  }, [isAntiCheatEnabled, isFullscreenStarted]);
 
   const calculateScore = () => {
     // Nếu là bài in giấy, bắt buộc học sinh phải điền MÃ ĐỀ trước khi chấm.
@@ -493,7 +494,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
   }, [isEnforcedExamMode, assignment, loggedInStudent, answersPart1, answersPart2, answersPart3, draftRestored, timerStarted, examVersion, tabSwitchCount]);
 
   useEffect(() => {
-    if (!isEnforcedExamMode || !timerStarted) return;
+    if (!isAntiCheatEnabled || !timerStarted) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -927,7 +928,7 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
     );
   };
 
-  if (isEnforcedExamMode && !isFullscreenStarted && !isPageLoading) {
+  if (isAntiCheatEnabled && !isFullscreenStarted && !isPageLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 selection:bg-rose-500/30 text-slate-900">
         <div className="bg-white rounded-[2rem] p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
