@@ -14,7 +14,7 @@ import {
 } from 'docx';
 import { ExamVersion } from '@/types';
 
-function p(text: string, options?: { bold?: boolean; color?: string; size?: number; heading?: HeadingLevel; alignment?: AlignmentType }) {
+function p(text: string, options?: { bold?: boolean; color?: string; size?: number; heading?: any; alignment?: any }) {
   return new Paragraph({
     heading: options?.heading,
     alignment: options?.alignment,

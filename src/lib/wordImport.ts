@@ -45,7 +45,7 @@ export async function wordFileNeedsRichImport(file: File): Promise<boolean> {
   return semantics.containsImages || semantics.containsMath || /<img\b/i.test(value);
 }
 
-function paragraph(text: string, options?: { bold?: boolean; color?: string; size?: number; heading?: HeadingLevel; alignment?: AlignmentType }) {
+function paragraph(text: string, options?: { bold?: boolean; color?: string; size?: number; heading?: any; alignment?: any }) {
   return new Paragraph({
     heading: options?.heading,
     alignment: options?.alignment,

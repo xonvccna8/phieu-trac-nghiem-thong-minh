@@ -75,21 +75,6 @@ export default function AuthPage() {
         if (role === 'STUDENT') {
           throw new Error('Đăng ký tài khoản học sinh đã bị khóa. Vui lòng liên hệ giáo viên để nhận tài khoản.');
         }
-        if (role === 'STUDENT') {
-          if (!/^\d{6}$/.test(sbd)) {
-            throw new Error('Số báo danh phải bao gồm đúng 6 chữ số.');
-          }
-          if (!classId) {
-            throw new Error('Vui lòng chọn lớp học.');
-          }
-          // Check if SBD already exists
-          const students = await store.getStudents();
-          if (students.some(s => s.sbd === sbd)) {
-            setSbdErrorModal(true);
-            setLoading(false);
-            return;
-          }
-        }
 
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const uid = userCredential.user.uid;
@@ -103,20 +88,6 @@ export default function AuthPage() {
         };
 
         await setDoc(doc(db, 'users', uid), newUser);
-
-        if (role === 'STUDENT') {
-          const selectedClassObj = classes.find(c => c.id === classId);
-          
-          const newStudent: Student = {
-            id: uid,
-            sbd,
-            fullName,
-            classId,
-            teacherId: selectedClassObj?.teacherId || '',
-            createdAt: Date.now()
-          };
-          await setDoc(doc(db, 'students', uid), newStudent);
-        }
       }
     } catch (err: any) {
       console.error(err);
