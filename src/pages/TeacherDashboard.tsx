@@ -7,6 +7,7 @@ import { signOut } from 'firebase/auth';
 import { store } from '@/lib/store';
 import { Exam, Assignment, Attempt, AttemptDraft, Student, Class } from '@/types';
 import { exportAnswerKeyToWord, exportExamToWord, exportStudentAttemptToWord, exportMixedVersionsZip } from '@/lib/wordExport';
+import { calculateLegacyExamScore } from '@/lib/examScoring';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -197,6 +198,48 @@ export default function TeacherDashboard() {
   const handleLogout = async () => {
     await signOut(auth);
     navigate('/auth');
+  };
+
+  const handleRegrade0Scores = async () => {
+    const assignment = assignments.find(a => a.examId === selectedExamForResults && a.classId === selectedClassForResults);
+    if (!assignment) {
+      setAlertDialog({ isOpen: true, message: 'Vui lòng chọn bài tập và lớp học để thực hiện.' });
+      return;
+    }
+    
+    const exam = exams.find(e => e.id === assignment.examId);
+    if (!exam || exam.templateType !== 'LEGACY_PHIU_TRA_LOI') {
+      setAlertDialog({ isOpen: true, message: 'Tính năng này chỉ áp dụng cho Phiếu Không chọn mã đề bị lỗi hệ thống.' });
+      return;
+    }
+
+    const assignmentAttempts = attempts.filter(a => a.assignmentId === assignment.id && (a.score === 0 || !a.score) && (Object.keys(a.answersPart1 || {}).length > 0));
+    
+    if (assignmentAttempts.length === 0) {
+      setAlertDialog({ isOpen: true, message: 'Không phát hiện bài làm nào mắc lỗi 0 điểm để khôi phục!'});
+      return;
+    }
+
+    let fixedCount = 0;
+    try {
+      for (const attempt of assignmentAttempts) {
+        const scores = calculateLegacyExamScore(exam, attempt as any); // Cast as any since Attempt already has matching fields
+        if (scores.total > 0) {
+          const updated = {
+            ...attempt,
+            score: scores.total,
+            part1Score: scores.p1Score,
+            part2Score: scores.p2Score,
+            part3Score: scores.p3Score,
+          };
+          await store.saveAttempt(updated);
+          fixedCount++;
+        }
+      }
+      setAlertDialog({ isOpen: true, message: `Thành công! Đã tự động chấm lại và khôi phục điểm cho ${fixedCount} học sinh.`});
+    } catch (e) {
+      setAlertDialog({ isOpen: true, message: 'Đã có lỗi trong quá trình khôi phục điểm. Vui lòng thử lại.'});
+    }
   };
 
   const handleChangeExamStatus = async (exam: Exam, nextStatus: Exam['status']) => {
@@ -855,6 +898,14 @@ export default function TeacherDashboard() {
                     >
                       <Download className="w-3.5 h-3.5" />
                       Xuất đáp án
+                    </button>
+                    <button
+                      onClick={handleRegrade0Scores}
+                      className="px-3 py-2 rounded-xl bg-orange-50 text-orange-700 text-xs font-bold hover:bg-orange-100 border border-orange-200 inline-flex items-center gap-1.5"
+                      title="Sử dụng nếu học sinh quên chọn mã đề khiến điểm báo về 0.0"
+                    >
+                      <BrainCircuit className="w-3.5 h-3.5" />
+                      Khôi phục lỗi 0đ
                     </button>
                   </div>
                 )}

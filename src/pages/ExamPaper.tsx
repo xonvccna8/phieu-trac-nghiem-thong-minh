@@ -333,7 +333,14 @@ export default function ExamPaper({ mode = 'EXAM' }: ExamPaperProps) {
     // Nếu học sinh chưa chọn examVersion thì đề trống, không được chấm.
     const isLegacySheet = sourceExam?.templateType === 'LEGACY_PHIU_TRA_LOI';
     if (isLegacySheet && !examVersion) {
-      return { p1Score: 0, p2Score: 0, p3Score: 0, total: 0, unansweredCount: 28 };
+      if (availableVersionsState.length > 0) {
+        return { p1Score: 0, p2Score: 0, p3Score: 0, total: 0, unansweredCount: 28 };
+      }
+      return calculateLegacyExamScore(sourceExam || exam, {
+        answersPart1,
+        answersPart2,
+        answersPart3,
+      });
     }
 
     if (isLegacySheet && examVersion) {
