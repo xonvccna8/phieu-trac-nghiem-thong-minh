@@ -101,6 +101,17 @@ export default function StudentDashboard() {
     loadVersions();
   }, [loggedInStudent, assignments]);
 
+  const [selectedLeaderboardAssignmentId, setSelectedLeaderboardAssignmentId] = useState<string>('');
+
+  useEffect(() => {
+    if (!selectedLeaderboardAssignmentId && allAttempts.length > 0) {
+      const latestAttempt = [...allAttempts].sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0))[0];
+      if (latestAttempt) {
+        setSelectedLeaderboardAssignmentId(latestAttempt.assignmentId);
+      }
+    }
+  }, [allAttempts, selectedLeaderboardAssignmentId]);
+
   const handleStartAssignment = (assignment: Assignment) => {
     if (assignment.startDate && new Date() < new Date(assignment.startDate)) {
       alert(`Chưa đến thời gian làm bài.\nThời gian bắt đầu: ${assignment.startDate.replace('T', ' ')}`);
@@ -145,41 +156,23 @@ export default function StudentDashboard() {
 
   let currentRank = 1;
   const rawStats = classStudents.map((student) => {
-    const studentClassAttempts = allAttempts.filter(attempt => attempt.studentId === student.id);
-    const bestAttemptsByAssignment = new Map<string, Attempt>();
-
-    studentClassAttempts.forEach((attempt) => {
-      const existing = bestAttemptsByAssignment.get(attempt.assignmentId);
-      if (!existing || (attempt.score || 0) > (existing.score || 0)) {
-        bestAttemptsByAssignment.set(attempt.assignmentId, attempt);
-      }
-    });
-
-    const bestAttempts = Array.from(bestAttemptsByAssignment.values());
-    const totalScore = bestAttempts.reduce((sum, attempt) => sum + (attempt.score || 0), 0);
-    const averageScore = bestAttempts.length > 0 ? totalScore / bestAttempts.length : 0;
-    const latestSubmittedAt = bestAttempts.reduce((latest, attempt) => Math.max(latest, attempt.submittedAt || 0), 0);
+    const studentAttempts = allAttempts.filter(attempt => attempt.studentId === student.id && attempt.assignmentId === selectedLeaderboardAssignmentId);
+    const bestAttempt = studentAttempts.reduce((best, current) => (current.score || 0) > (best?.score || 0) ? current : best, studentAttempts[0]);
 
     return {
       student,
-      averageScore,
-      completedCount: bestAttempts.length,
-      totalScore,
-      latestSubmittedAt,
+      score: bestAttempt?.score || 0,
+      hasCompleted: !!bestAttempt,
+      submittedAt: bestAttempt?.submittedAt || 0,
     };
-  });
+  }).filter(entry => entry.hasCompleted);
 
   const rankingEntries = rawStats.sort((a, b) => 
-    b.averageScore - a.averageScore ||
-    b.completedCount - a.completedCount ||
-    b.totalScore - a.totalScore ||
-    a.latestSubmittedAt - b.latestSubmittedAt
+    b.score - a.score ||
+    a.submittedAt - b.submittedAt
   ).map((entry, index, arr) => {
     const prev = arr[index - 1];
-    const sameAsPrev = prev &&
-      prev.averageScore === entry.averageScore &&
-      prev.completedCount === entry.completedCount &&
-      prev.totalScore === entry.totalScore;
+    const sameAsPrev = prev && prev.score === entry.score;
 
     if (!sameAsPrev) currentRank = index + 1;
 
@@ -189,8 +182,23 @@ export default function StudentDashboard() {
     };
   });
 
+  // Tính rank cho bài mới nhất học sinh vừa làm
+  let latestRankText = '--';
+  if (recentAttempt) {
+    const classAttemptsForLatest = allAttempts.filter(a => a.assignmentId === recentAttempt.assignmentId);
+    const bestScores = new Map<string, number>();
+    classAttemptsForLatest.forEach(a => {
+      const existing = bestScores.get(a.studentId) || -1;
+      if ((a.score || 0) > existing) bestScores.set(a.studentId, a.score || 0);
+    });
+    const sortedScores = Array.from(bestScores.values()).sort((a, b) => b - a);
+    const myBest = bestScores.get(loggedInStudent.id) || 0;
+    const rankPos = sortedScores.indexOf(myBest) + 1;
+    if (rankPos > 0) latestRankText = String(rankPos);
+  }
+
   const currentStudentRanking = rankingEntries.find(entry => entry.student.id === loggedInStudent.id);
-  const topThreeStudents = rankingEntries.filter(entry => entry.completedCount > 0).slice(0, 3);
+  const topThreeStudents = rankingEntries.slice(0, 3);
   const podiumOrder = [1, 0, 2].filter(index => topThreeStudents[index]);
 
   const podiumStyles = [
@@ -214,8 +222,6 @@ export default function StudentDashboard() {
     },
   ];
 
-  const rankText = typeof currentStudentRanking?.rank === 'number' ? String(currentStudentRanking.rank) : '';
-  const averageScore = currentStudentRanking?.averageScore || 0;
   const nextAssignment = [...pendingAssignments].sort((a, b) => {
     const aTime = a.dueDate ? new Date(a.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
     const bTime = b.dueDate ? new Date(b.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
@@ -280,12 +286,12 @@ export default function StudentDashboard() {
               <div className="mt-3 text-3xl font-black text-slate-900">{completedAssignments.length}</div>
             </div>
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5">
-              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider">Điểm TB</div>
-              <div className="mt-3 text-3xl font-black text-emerald-600">{averageScore > 0 ? averageScore.toFixed(2) : '--'}</div>
+              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider">Điểm mới nhất</div>
+              <div className="mt-3 text-3xl font-black text-emerald-600">{recentAttempt ? recentScore.toFixed(2) : '--'}</div>
             </div>
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5">
-              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider">Thứ hạng</div>
-              <div className="mt-3 text-3xl font-black text-slate-900">{rankText}</div>
+              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider" title="Thứ hạng của bài thi mới nhất em tham gia">Hạng bài cuối</div>
+              <div className="mt-3 text-3xl font-black text-slate-900">{latestRankText}</div>
             </div>
           </div>
 
@@ -347,12 +353,23 @@ export default function StudentDashboard() {
             </section>
 
             <section className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl p-6 text-white shadow-lg">
-              <div className="flex items-center justify-between gap-4 mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                 <div>
                   <p className="text-emerald-50/80 text-xs font-bold uppercase tracking-[0.18em]">Top 3 lớp</p>
                   <h2 className="mt-2 text-xl font-black">Vinh danh học sinh nổi bật</h2>
                 </div>
-                <Trophy className="w-6 h-6 text-amber-200" />
+                <select 
+                  className="bg-white/10 border border-white/20 text-white rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400 outline-none max-w-xs truncate"
+                  value={selectedLeaderboardAssignmentId}
+                  onChange={(e) => setSelectedLeaderboardAssignmentId(e.target.value)}
+                >
+                  <option value="" className="text-slate-900">-- Chọn đề thi --</option>
+                  {Array.from(new Set(allAttempts.map(a => a.assignmentId))).map(assignmentId => {
+                    const assign = assignments.find(a => a.id === assignmentId);
+                    const exam = exams.find(e => e.id === assign?.examId);
+                    return <option key={assignmentId} value={assignmentId} className="text-slate-900">{exam?.title || 'Bài tập ' + assignmentId.slice(0,4)}</option>;
+                  })}
+                </select>
               </div>
 
               {topThreeStudents.length === 0 ? (
@@ -374,7 +391,7 @@ export default function StudentDashboard() {
                               <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">Bạn</span>
                             )}
                           </div>
-                          <p className="text-xs text-white/75">Top {index + 1} • {entry.averageScore.toFixed(2)} điểm • {entry.completedCount} bài</p>
+                          <p className="text-xs text-white/75">Top {index + 1} • {entry.score.toFixed(2)} điểm</p>
                         </div>
                       </div>
                     </div>
@@ -601,8 +618,8 @@ export default function StudentDashboard() {
                 <span className="font-medium text-slate-900">{studentClass}</span>
               </div>
               <div className="flex justify-between border-b border-slate-200 pb-2">
-                <span className="text-slate-500">Thứ hạng hiện tại</span>
-                <span className="font-medium text-emerald-600">{rankText}</span>
+                <span className="text-slate-500">Hạng bài thi vừa tham gia</span>
+                <span className="font-medium text-emerald-600">{latestRankText}</span>
               </div>
               <button 
                 onClick={handleLogout}
