@@ -684,13 +684,13 @@ export default function ExamEditor({ mode = 'EXAM' }: ExamEditorProps) {
                   <input
                     type="number"
                     min={1}
-                    max={20}
+                    max={48}
                     value={sheetVersionCountInput}
-                    onChange={(e) => setSheetVersionCountInput(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                    onChange={(e) => setSheetVersionCountInput(Math.max(1, Math.min(48, Number(e.target.value) || 1)))}
                     className="w-full lg:w-64 border border-blue-300 rounded-xl px-3 py-2 font-semibold text-blue-900 bg-white focus:ring-2 focus:ring-blue-400 outline-none"
                   />
                   <div className="text-xs text-blue-900/80 mt-2">
-                    Hệ thống sẽ tạo mã đề dạng 4 số: 1101, 1102, 1103...
+                    Hệ thống sẽ tạo mã đề dạng 4 số: 1101, 1102, 1103... tối đa 48 mã.
                   </div>
                 </div>
                 <button
@@ -698,7 +698,8 @@ export default function ExamEditor({ mode = 'EXAM' }: ExamEditorProps) {
                   onClick={async () => {
                     const savedId = await saveExamAndReturnId();
                     if (!savedId) return;
-                    navigate(`/teacher/sheet/mix/${savedId}?count=${sheetVersionCountInput}&codeStyle=NUMERIC`);
+                    const safeCount = Math.max(1, Math.min(48, sheetVersionCountInput));
+                    navigate(`/teacher/sheet/mix/${savedId}?count=${safeCount}&codeStyle=NUMERIC`);
                   }}
                   className="px-5 py-2.5 rounded-xl font-bold inline-flex items-center gap-2 transition-colors bg-blue-600 text-white hover:bg-blue-700"
                 >

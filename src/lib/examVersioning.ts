@@ -130,7 +130,7 @@ export function generateExamVersions(
 ): ExamVersion[] {
   const normalizedConfig: ExamMixingSettings = {
     enabled: true,
-    versionCount: Math.max(1, Math.min(20, config.versionCount || 1)),
+    versionCount: Math.max(1, Math.min(48, config.versionCount || 1)),
     codeStyle: config.codeStyle || 'ALPHA',
     shuffleQuestions: config.shuffleQuestions ?? true,
     shuffleChoices: config.shuffleChoices ?? true,

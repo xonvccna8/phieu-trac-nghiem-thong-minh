@@ -96,7 +96,7 @@ export default function SheetMixingPage() {
       const params = new URLSearchParams(location.search);
       const requestedCount = Number(params.get('count') || '');
       const normalizedRequestedCount = Number.isFinite(requestedCount) && requestedCount > 0
-        ? Math.max(1, Math.min(20, Math.floor(requestedCount)))
+        ? Math.max(1, Math.min(48, Math.floor(requestedCount)))
         : undefined;
 
       if (examData) {
@@ -415,9 +415,9 @@ export default function SheetMixingPage() {
                 <input
                   type="number"
                   min={1}
-                  max={20}
+                  max={48}
                   value={versionCount}
-                  onChange={(e) => setVersionCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                  onChange={(e) => setVersionCount(Math.max(1, Math.min(48, Number(e.target.value) || 1)))}
                   className="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
